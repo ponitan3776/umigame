@@ -284,7 +284,7 @@ async function boot(){
     engine=await webllm.CreateMLCEngine(model,{initProgressCallback:r=>{
       target=Math.max(target,Math.round((r.progress||0)*100));
       $("status").textContent=r.text||"読み込み中…";
-    }},{context_window_size:2048});
+    }});
     target=100; $("status").textContent="準備完了！"; prefetch();
     await new Promise(r=>{const w=()=>shown>=99.5?r():setTimeout(w,60);w()});
     clearInterval(slideTimer);
@@ -318,39 +318,50 @@ function jsonOf(t){ const m=t.match(/\{[\s\S]*\}/); if(!m) return null; try{retu
 const busyMsg=t=>{const m=$("busyMsg"); if(m) m.textContent=t};
 
 /* 手順1：まず「真相メモ」を書く → 手順2：その真相を隠した問題文を書く */
+let lastGenErr="";
+const asText=x=>`題名：${x.title}\n真相：${x.answer}\n事実：\n${x.facts.map(f=>"- "+f).join("\n")}`;
+function parseTruth(t){
+  const title=((t.match(/題名[:：]\s*(.+)/)||[])[1]||"").trim();
+  const answer=((t.match(/真相[:：]\s*([\s\S]+?)(?=\n\s*事実[:：]|$)/)||[])[1]||"").trim();
+  const facts=[...t.matchAll(/^\s*[-・●*]\s*(.+)$/gm)].map(m=>m[1].trim()).filter(x=>x.length>3);
+  return {title,answer,facts};
+}
 async function makePuzzle(){
-  const sys="あなたは「ウミガメのスープ」（水平思考クイズ）の出題者です。必ず日本語のJSONのみを出力します。";
+  lastGenErr="";
+  const sys="あなたは「ウミガメのスープ」（水平思考クイズ）の出題者です。日本語で、指定された形式だけを出力します。";
   const exs=[...SEEDS].sort(()=>Math.random()-.5).slice(0,2);
-  const dupOf=(o)=>SEEDS.some(x=>x.title===o.title||x.answer.slice(0,10)===o.answer.slice(0,10));
+  const dupOf=o=>SEEDS.some(x=>x.title===o.title||x.answer.slice(0,10)===o.answer.slice(0,10));
   for(let i=0;i<3;i++){
     try{
       const theme=pick(THEMES);
       busyMsg(i?"もう一度、真相を考えています…":"真相をひそかに考えています…");
       const t1=await chat([{role:"system",content:sys},{role:"user",content:`問題の「真相メモ」を新しく作ってください。ジャンル：${genre}。キーワード：${theme}。
-- title：6文字以内の題名
-- answer：2〜3文の、論理的に筋の通った真相
-- facts：真相を成り立たせる事実を、短い1文で5〜7個
-- 過激な暴力や性的な内容は避ける
-例1：${JSON.stringify({title:exs[0].title,answer:exs[0].answer,facts:exs[0].facts})}
-例2：${JSON.stringify({title:exs[1].title,answer:exs[1].answer,facts:exs[1].facts})}
-※例とは全く違う内容にすること。JSONだけを出力。`}],{temperature:.9,max_tokens:520,response_format:{type:"json_object"}});
-      const o=jsonOf(t1);
-      if(!o||!o.answer||o.answer.length<20||!Array.isArray(o.facts)||o.facts.length<3||dupOf(o)) continue;
+題名は6文字以内、真相は2〜3文で論理的に筋が通ること、事実は短い1文を5〜7個。過激な暴力や性的な内容は避ける。
+例1
+${asText(exs[0])}
+例2
+${asText(exs[1])}
+※例とは全く違う内容にすること。例と同じ形式（題名・真相・事実）だけを出力。`}],{temperature:.9,max_tokens:520});
+      const o=parseTruth(t1);
+      if(!o.title||o.answer.length<20||o.facts.length<3||dupOf(o)) continue;
       busyMsg("真相を隠した問題文を作っています…");
       const t2=await chat([{role:"system",content:sys},{role:"user",content:`次の真相を持つ問題文を作ってください。
 【真相】${o.answer}
 条件：2〜3文で、状況が不思議で「なぜ？」と思える出題文。真相の核心（理由・正体）は書かない。
-JSON形式 {"problem":"..."} で出力。`}],{temperature:.6,max_tokens:220,response_format:{type:"json_object"}});
-      const p=jsonOf(t2);
-      if(p&&p.problem&&p.problem.length>15&&!SEEDS.some(x=>x.problem.slice(0,12)===p.problem.slice(0,12)))
-        return {title:o.title||"謎の物語",problem:p.problem,answer:o.answer,facts:o.facts.map(String).slice(0,8),kind:"AI"};
-    }catch(e){console.warn(e)}
+「問題：」に続けて問題文だけを出力。
+例 問題：${exs[0].problem}`}],{temperature:.6,max_tokens:220});
+      const p=((t2.match(/問題[:：]\s*([\s\S]+)/)||[])[1]||t2).trim().split(/\n\s*\n/)[0].trim();
+      if(p.length>15&&!SEEDS.some(x=>x.problem.slice(0,12)===p.slice(0,12)))
+        return {title:o.title.slice(0,10),problem:p,answer:o.answer,facts:o.facts.slice(0,8),kind:"AI"};
+    }catch(e){ lastGenErr=String(e&&e.message||e); console.warn(e); }
   }
   busyMsg("定番問題を選んでいます…");
   return nextSeed();
 }
 
 /* ---------- UI helpers ---------- */
+function showErr(el,e){ console.error(e); const m=String(e&&e.message||e).slice(0,140);
+  el.innerHTML='うまく答えられませんでした。<br><small style="color:var(--mute)">'+esc(m)+'</small>'+(LITE?'':'<br><a href="?lite" style="color:var(--broth)">軽量モデルで開き直す</a>'); }
 const log=$("log");
 function add(cls,html,isText){const d=document.createElement("div");d.className="msg "+cls;
   if(isText) d.textContent=html; else d.innerHTML=html; log.appendChild(d); log.scrollTop=log.scrollHeight; return d;}
@@ -377,6 +388,7 @@ async function newGame(){
   b.remove();
   $("ptitle").textContent="「"+puzzle.title+"」"; $("ptag").textContent=puzzle.kind==="AI"?"AI作成":"定番問題"; $("ptext").textContent=puzzle.problem;
   log.innerHTML=""; add("sys","質問してみよう。小型AIなので、たまに答えを間違えます。変だと思ったら、質問を言い換えてみてね。");
+  if(puzzle.kind!=="AI"&&lastGenErr) add("sys","（AI作問エラー："+lastGenErr.slice(0,80)+"）",true);
   $("play").classList.remove("hidden"); $("count").classList.remove("hidden");
   setBusy(false); $("input").focus();
 }
@@ -400,15 +412,16 @@ async function ask(q){
   const key=q.replace(/[\s、。，．？?！!]/g,"");
   if(cache.has(key)) return cache.get(key);
   const sys=ctx()+`
-プレイヤーの新しい質問に答えます。真相と確定事実だけを根拠に、次のJSONだけを出力してください。
-{"reason":"根拠を30字以内で","answer":"はい か いいえ か 関係ありません のどれか1つ"}
+プレイヤーの新しい質問に答えます。真相と確定事実だけを根拠に、次の2行の形式で出力してください。
+根拠：（30字以内）
+答え：（はい／いいえ／関係ありません のどれか1つ）
 - 質問が真相や確定事実に合っている → はい
 - 質問が真相や確定事実に反している → いいえ
 - 真相に出てこない話で、真相の理解に影響しない → 関係ありません
 - 知らないことを勝手に作らない。判断できなければ「関係ありません」。`;
-  const t=await chat([{role:"system",content:sys},{role:"user",content:"質問："+q}],{temperature:0,max_tokens:90,response_format:{type:"json_object"}});
-  const o=jsonOf(t); const a=String(o&&o.answer!=null?o.answer:t);
-  const r=a.includes("か")&&a.includes("のどれか")?"irr":a.includes("関係")?"irr":a.includes("いいえ")?"no":a.includes("はい")?"yes":"irr";
+  const t=await chat([{role:"system",content:sys},{role:"user",content:"質問："+q}],{temperature:0,max_tokens:100});
+  const m=t.match(/答え[:：]\s*([\s\S]*)/); const a=m?m[1]:t;
+  const r=a.includes("関係")?"irr":a.includes("いいえ")?"no":a.includes("はい")?"yes":"irr";
   cache.set(key,r); history.push({q,a:LABEL[r]});
   return r;
 }
@@ -418,7 +431,7 @@ async function send(){
   const q=$("input").value.trim(); if(!q||busy) return;
   $("input").value=""; add("me",q,true); qCount++; updateCount(); setBusy(true);
   const t=typing();
-  try{ const r=await ask(q); t.innerHTML=BADGE[r]; }catch(e){ t.textContent="うまく答えられませんでした。もう一度どうぞ。"; }
+  try{ const r=await ask(q); t.innerHTML=BADGE[r]; }catch(e){ showErr(t,e); }
   setBusy(false); $("input").focus();
 }
 
@@ -427,7 +440,7 @@ async function hint(){
   try{
     const h=await chat([{role:"system",content:ctx()+"\nプレイヤーにヒントを1文（40字以内）で出してください。真相をそのまま言わず、着眼点だけを示してください。"+(hintsGiven.length?"\nすでに出したヒント（重複禁止）：\n"+hintsGiven.join("\n"):"")},{role:"user",content:"ヒントをください"}],{temperature:.5,max_tokens:80});
     hintsGiven.push(h); t.innerHTML="💡 "+esc(h);
-  }catch{t.textContent="ヒントを作れませんでした。";}
+  }catch(e){showErr(t,e);}
   setBusy(false);
 }
 
@@ -443,15 +456,16 @@ async function guess(){
   $("input").value=""; add("me","🎯 "+g,true); setBusy(true); const t=typing();
   try{
     const raw=await chat([{role:"system",content:ctx()+`
-プレイヤーの推理が、真相の核心（理由）を捉えているか判定します。次のJSONだけを出力してください。
-{"reason":"根拠を30字以内で","verdict":"正解 か 惜しい か 不正解 のどれか1つ"}
-核心を捉えていれば正解、一部だけ合っていれば惜しい、外れていれば不正解。`},{role:"user",content:"推理："+g}],{temperature:0,max_tokens:90,response_format:{type:"json_object"}});
-    const jo=jsonOf(raw); const r=String(jo&&jo.verdict!=null?jo.verdict:raw);
+プレイヤーの推理が、真相の核心（理由）を捉えているか判定します。次の2行の形式で出力してください。
+根拠：（30字以内）
+判定：（正解／惜しい／不正解 のどれか1つ）
+核心を捉えていれば正解、一部だけ合っていれば惜しい、外れていれば不正解。`},{role:"user",content:"推理："+g}],{temperature:0,max_tokens:100});
+    const jm=raw.match(/判定[:：]\s*[「『]?(不正解|惜しい|正解)/); const r=jm?jm[1]:raw;
     if(r.includes("不正解")) t.innerHTML='<span class="badge no">不正解</span>もう少し質問してみよう。';
     else if(r.includes("惜しい")) t.innerHTML='<span class="badge irr">惜しい！</span>あと一歩です。';
     else if(r.includes("正解")){ t.remove(); win(); }
     else t.innerHTML='<span class="badge irr">惜しい？</span>もう少し詳しく教えてください。';
-  }catch{t.textContent="判定できませんでした。";}
+  }catch(e){showErr(t,e);}
   setBusy(false);
 }
 function win(){ add("ai reveal win",`🎉 <b>正解！</b>（質問 ${qCount} 回）<br>${esc(puzzle.answer)}`); toggleGuessOff(); }
