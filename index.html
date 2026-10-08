@@ -230,9 +230,20 @@ header h1{font-family:var(--serif);font-weight:800;font-size:20px;letter-spacing
 import * as webllm from "https://esm.run/@mlc-ai/web-llm";
 
 /* ---------- model: 軽量。?lite を付けるとさらに小さいモデルに ---------- */
-/* 既定は精度重視の1.5B(約0.9GB)。?lite を付けると最軽量の0.5B(約0.3GB・判定は粗くなります) */
-const LITE = new URLSearchParams(location.search).has("lite");
-const SIZE = LITE ? "0.5B" : "1.5B";
+/* ---------- モデル選択＆クラッシュ検知 ----------
+   iPhone/iPad・低メモリ端末は最軽量の0.5B(約0.3GB)が既定。PCは1.5B(約0.9GB)。
+   読み込み中にタブが強制終了された場合は次回から自動で軽量化します。URLに ?hq / ?lite / ?retry で手動切替 */
+const store={get(k){try{return localStorage.getItem(k)}catch{return null}},set(k,v){try{localStorage.setItem(k,v)}catch{}},del(k){try{localStorage.removeItem(k)}catch{}}};
+const P=new URLSearchParams(location.search);
+if(P.has("retry")){store.del("umi_crash");store.del("umi_inflight");}
+let crashes=+(store.get("umi_crash")||0);
+if(store.get("umi_inflight")==="1"){crashes++;store.set("umi_crash",String(crashes));}
+store.set("umi_inflight","1");
+addEventListener("pagehide",()=>store.set("umi_inflight","0"));
+const IOS=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+const lowMem=(navigator.deviceMemory||8)<=4;
+const SIZE=P.has("hq")?"1.5B":(P.has("lite")||IOS||lowMem||crashes>=1)?"0.5B":"1.5B";
+const LITE=SIZE==="0.5B";
 navigator.storage?.persist?.();
 const $ = id => document.getElementById(id);
 
@@ -268,29 +279,39 @@ const tick=()=>{ if(shown<target){shown=Math.min(target,shown+Math.max(.6,(targe
 function fail(msg){ clearInterval(slideTimer); $("status").classList.add("hidden"); const e=$("err"); e.classList.remove("hidden"); e.innerHTML=msg; }
 
 let engine=null;
+const NOGPU="このブラウザ／OSではWebGPUが使えません。<br>iPhone・iPadは <b>iOS / iPadOS 26 以降</b>にアップデートしてお試しください（SafariでもChromeでも同じです）。";
 async function boot(){
-  if(!navigator.gpu){ return fail("このブラウザ／OSではWebGPUが使えません。<br>iPhone・iPadは <b>iOS / iPadOS 26 以降</b>にアップデートしてお試しください（SafariでもChromeでも同じです）。"); }
+  if(crashes>=3){ store.set("umi_inflight","0"); return fail('端末のメモリ不足で、読み込みが何度も中断されました。<br>他のタブやアプリを閉じ、ブラウザを再起動してから<br><a href="?retry" style="color:var(--broth)">もう一度試す</a>をタップしてください。'); }
+  if(!navigator.gpu){ store.set("umi_inflight","0"); return fail(NOGPU); }
   let wl=null; try{wl=await navigator.wakeLock?.request("screen")}catch{}
-  let model;
-  try{
-    const ad=await navigator.gpu.requestAdapter();
-    if(!ad) throw 0;
-    const f16=ad.features.has("shader-f16");
-    model=`Qwen2.5-${SIZE}-Instruct-${f16?"q4f16_1":"q4f32_1"}-MLC`;
-  }catch(e){ return fail("GPUを初期化できませんでした。ページを再読み込みしてください。"); }
-  try{
-    let cached=false; try{cached=await webllm.hasModelInCache(model)}catch{}
-    if(cached) $("status").textContent="保存済みのAIを起動しています…（数秒）";
-    engine=await webllm.CreateMLCEngine(model,{initProgressCallback:r=>{
-      target=Math.max(target,Math.round((r.progress||0)*100));
-      $("status").textContent=r.text||"読み込み中…";
-    }});
-    target=100; $("status").textContent="準備完了！"; prefetch();
-    await new Promise(r=>{const w=()=>shown>=99.5?r():setTimeout(w,60);w()});
-    clearInterval(slideTimer);
-    try{wl?.release()}catch{} $("loader").classList.add("out"); $("app").classList.remove("hidden");
-    setTimeout(()=>$("loader").remove(),750);
-  }catch(e){ console.error(e); fail("AIの読み込みに失敗しました。<br>通信状況や空き容量を確認して、再読み込みしてください。<br><small>通信が安定した環境でもう一度お試しください。</small>"); }
+  let f16=false;
+  try{ const ad=await navigator.gpu.requestAdapter(); if(!ad) throw 0; f16=ad.features.has("shader-f16"); }
+  catch(e){ store.set("umi_inflight","0"); return fail("GPUを初期化できませんでした。ページを再読み込みしてください。"); }
+  /* 失敗したら f16→f32、1.5B→0.5B の順に自動で切り替える */
+  const sizes=SIZE==="1.5B"?["1.5B","0.5B"]:["0.5B"], cand=[];
+  for(const sz of sizes) for(const q of (f16?["q4f16_1","q4f32_1"]:["q4f32_1"])) cand.push([sz,`Qwen2.5-${sz}-Instruct-${q}-MLC`]);
+  let lastE=null;
+  for(let k=0;k<cand.length;k++){
+    const [sz,model]=cand[k];
+    try{
+      if(k){shown=0;target=0;}
+      let cached=false; try{cached=await webllm.hasModelInCache(model)}catch{}
+      $("status").textContent=cached?"保存済みのAIを起動しています…（数秒）":"AIを読み込んでいます…";
+      engine=await webllm.CreateMLCEngine(model,{initProgressCallback:r=>{
+        target=Math.max(target,Math.round((r.progress||0)*100));
+        $("status").textContent=r.text||"読み込み中…";
+      }});
+      if(sz!==sizes[0]) store.set("umi_crash",String(Math.max(1,crashes)));
+      lastE=null; break;
+    }catch(e){ lastE=e; engine=null; console.error(e); }
+  }
+  if(!engine){ store.set("umi_inflight","0"); try{wl?.release()}catch{}
+    return fail('AIの読み込みに失敗しました。<br>空き容量と通信状況を確認し、他のタブを閉じて再読み込みしてください。<br><small>'+esc(String(lastE&&lastE.message||lastE).slice(0,160))+'</small>'); }
+  target=100; $("status").textContent="準備完了！"; prefetch();
+  await new Promise(r=>{const w=()=>shown>=99.5?r():setTimeout(w,60);w()});
+  clearInterval(slideTimer);
+  try{wl?.release()}catch{} $("loader").classList.add("out"); $("app").classList.remove("hidden");
+  setTimeout(()=>$("loader").remove(),750);
 }
 boot();
 
@@ -373,7 +394,7 @@ function updateCount(){$("count").textContent=`質問 ${qCount} 回`}
 /* ---------- 先読み：開始画面にいる間に最初の問題を作っておく ---------- */
 let pre=null,preGenre=null;
 function prefetch(){ preGenre=genre; $("preNote").textContent="問題を先に準備しています…";
-  pre=makePuzzle(); pre.then(()=>{ if(pre&&preGenre===genre) $("preNote").textContent="問題の準備ができました！すぐ始められます"; }); }
+  pre=makePuzzle(); pre.finally(()=>store.set("umi_inflight","0")); pre.then(()=>{ if(pre&&preGenre===genre) $("preNote").textContent="問題の準備ができました！すぐ始められます"; }); }
 
 /* ---------- new game ---------- */
 async function newGame(){
