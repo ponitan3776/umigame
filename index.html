@@ -1,613 +1,454 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>ウミガメのスープ</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#06141f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ウミガメのスープ">
+<meta name="format-detection" content="telephone=no">
+<title>ウミガメのスープ | AIと遊ぶ水平思考クイズ</title>
+<link rel="preconnect" href="https://huggingface.co" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="dns-prefetch" href="https://raw.githubusercontent.com">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@600;800&family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg: #0a0e1a;
-    --surface: #111827;
-    --surface2: #1e293b;
-    --accent: #38bdf8;
-    --accent2: #818cf8;
-    --text: #e2e8f0;
-    --text-dim: #94a3b8;
-    --success: #34d399;
-    --danger: #f87171;
-    --warn: #fbbf24;
-  }
-  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body {
-    height: 100%;
-    font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    overflow: hidden;
-    line-height: 1.6;
-  }
-  #app { display: flex; flex-direction: column; height: 100dvh; max-width: 720px; margin: 0 auto; position: relative; }
+:root{
+  --abyss:#06141f; --deep:#0c2a3a; --mid:#143d52; --kelp:#3fb8a8; --broth:#f2b45a;
+  --foam:#e8f4f1; --mute:#8fb0b8; --coral:#ff7a6b; --line:rgba(232,244,241,.14);
+  --serif:"Shippori Mincho","Hiragino Mincho ProN","Yu Mincho",serif;
+  --sans:"Zen Maru Gothic","Hiragino Maru Gothic ProN","Hiragino Sans","Meiryo",sans-serif;
+}
+*{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;-webkit-text-size-adjust:100%;overscroll-behavior:none}
+body{font-family:var(--sans);background:radial-gradient(120% 80% at 50% 0%,var(--mid) 0%,var(--deep) 45%,var(--abyss) 100%) fixed;color:var(--foam);overflow:hidden;line-height:1.7;position:fixed;inset:0;width:100%;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+input{-webkit-user-select:text;user-select:text}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+:focus-visible{outline:3px solid var(--broth);outline-offset:2px}
+.hidden{display:none!important}
 
-  /* ========== Loading Screen ========== */
-  #loading {
-    position: absolute; inset: 0; z-index: 100;
-    background: var(--bg);
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    padding: 24px; text-align: center;
-    transition: opacity 0.8s cubic-bezier(0.4,0,0.2,1), visibility 0.8s;
-  }
-  #loading.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+/* bubbles */
+.bubbles{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:0}
+.bubbles i{position:absolute;bottom:-40px;width:var(--s);height:var(--s);border-radius:50%;border:1.5px solid rgba(232,244,241,.25);background:rgba(232,244,241,.05);animation:rise var(--d) linear infinite;animation-delay:var(--l);left:var(--x)}
+@keyframes rise{to{transform:translateY(-115vh) translateX(var(--w))}}
 
-  .turtle-logo {
-    font-size: 64px; margin-bottom: 8px;
-    animation: turtleFloat 3s ease-in-out infinite;
-  }
-  @keyframes turtleFloat {
-    0%,100% { transform: translateY(0) rotate(-5deg); }
-    50% { transform: translateY(-12px) rotate(5deg); }
-  }
+/* ===== loader ===== */
+#loader{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:24px;padding-top:calc(24px + env(safe-area-inset-top,0px));padding-bottom:calc(24px + env(safe-area-inset-bottom,0px));background:radial-gradient(120% 80% at 50% 0%,var(--mid),var(--abyss));transition:opacity .7s ease,transform .7s ease}
+#loader.out{opacity:0;transform:scale(1.06);pointer-events:none}
+.brand{font-family:var(--serif);font-weight:800;font-size:clamp(30px,8vw,46px);letter-spacing:.08em;text-align:center;line-height:1.3}
+.sub{color:var(--mute);font-size:14px;text-align:center}
+.bowl{position:relative;width:200px;height:150px}
+.steam{position:absolute;top:0;left:50%;width:100%;height:50px;transform:translateX(-50%)}
+.steam b{position:absolute;bottom:0;width:8px;height:34px;border-radius:8px;background:linear-gradient(to top,rgba(232,244,241,.5),transparent);animation:steam 2.6s ease-in-out infinite;left:calc(50% + var(--o))}
+@keyframes steam{0%{transform:translateY(8px) scaleY(.6);opacity:0}40%{opacity:.9}100%{transform:translateY(-24px) scaleY(1.2) translateX(6px);opacity:0}}
+.bowl-body{position:absolute;bottom:0;left:0;right:0;height:96px;border-radius:0 0 100px 100px;border:3px solid var(--foam);border-top:0;overflow:hidden;background:rgba(6,20,31,.5)}
+.soup{position:absolute;left:-10%;width:120%;bottom:0;height:var(--fill,0%);background:linear-gradient(var(--broth),#c9822c);transition:height .5s ease}
+.soup::before,.soup::after{content:"";position:absolute;left:-50%;top:-12px;width:200%;height:24px;background:var(--broth);border-radius:42%;animation:slosh 3.2s linear infinite}
+.soup::after{opacity:.5;top:-9px;animation-duration:4.6s;animation-direction:reverse}
+@keyframes slosh{to{transform:translateX(25%)}}
+.bowl-rim{position:absolute;left:-8px;right:-8px;bottom:93px;height:7px;border-radius:7px;background:var(--foam)}
+.turtle{position:absolute;bottom:-4px;left:50%;width:78px;margin-left:-39px;animation:bob 2.4s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-8px) rotate(-3deg)}}
+.pct{font-family:var(--serif);font-weight:800;font-size:56px;line-height:1;font-variant-numeric:tabular-nums}
+.pct small{font-size:24px;margin-left:2px;color:var(--broth)}
+.bar{width:min(340px,86vw);height:14px;border-radius:14px;background:rgba(232,244,241,.12);overflow:hidden;border:1px solid var(--line)}
+.bar>div{height:100%;width:0;border-radius:14px;background:repeating-linear-gradient(115deg,var(--kelp) 0 14px,#5fd0bf 14px 28px);background-size:56px 100%;animation:stripe 1s linear infinite;transition:width .4s ease}
+@keyframes stripe{to{background-position:56px 0}}
+.status{font-size:13px;color:var(--mute);min-height:2.8em;max-width:340px;text-align:center;word-break:break-all}
+.tip{font-size:13px;color:var(--foam);opacity:.85;max-width:330px;text-align:center;border-top:1px solid var(--line);padding-top:14px}
+#loader{overflow:auto;-webkit-overflow-scrolling:touch;justify-content:flex-start}
+@media (min-width:768px){body{font-size:17px}#app{max-width:820px}.problem p,.msg{font-size:17px}.problem h2{font-size:20px}}
+#loader>:first-child{margin-top:auto}#loader>:last-child{margin-bottom:auto}
+.tut{width:min(360px,90vw);border-radius:20px;background:rgba(232,244,241,.07);border:1px solid var(--line);padding:14px 16px 10px}
+.slide{display:none;min-height:128px;font-size:14px;animation:in .4s ease}
+.slide.on{display:block}
+.slide h3{font-family:var(--serif);font-size:17px;color:var(--broth);margin-bottom:6px}
+.dotsnav{display:flex;justify-content:center;gap:6px;margin-top:8px}
+.dotsnav button{width:22px;height:22px;display:grid;place-items:center}
+.dotsnav button::after{content:"";width:8px;height:8px;border-radius:8px;background:rgba(232,244,241,.3);transition:all .3s}
+.dotsnav button[aria-current=true]::after{width:20px;background:var(--broth)}
+.flow{display:flex;justify-content:space-around;font-size:26px;margin-top:10px;text-align:center}
+.flow small{display:block;font-size:11px;color:var(--mute)}
+.qz{display:grid;gap:8px;margin-top:8px}
+.qz button{padding:9px 12px;border-radius:12px;border:1.5px solid var(--line);background:rgba(232,244,241,.06);text-align:left;font-size:14px;transition:all .2s}
+.qz button.ok{background:var(--kelp);color:#04201c;border-color:var(--kelp)}
+.qz button.ng{background:var(--coral);color:#3a0b06;border-color:var(--coral);animation:shake .4s}
+#qzfb{min-height:2.6em;margin-top:6px;font-size:13px;color:var(--foam)}
+.demo{display:grid;gap:6px;margin-top:6px}
+.demo div{opacity:0;padding:6px 12px;border-radius:14px;font-size:13px;width:fit-content;max-width:90%;animation:in .4s ease forwards;animation-delay:var(--t)}
+.demo .q{background:var(--kelp);color:#04201c;justify-self:end}
+.demo .a{background:rgba(232,244,241,.12)}
+.tool{display:flex;gap:10px;align-items:center;margin-top:6px;font-size:13px}.tool b{font-size:20px}
+@media (max-height:720px){.bowl{transform:scale(.8);margin:-16px 0}.pct{font-size:44px}#loader{gap:14px}}
+.err{max-width:340px;text-align:center;color:var(--coral);font-size:14px}
 
-  .app-title {
-    font-size: 22px; font-weight: 700;
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    margin-bottom: 4px;
-  }
-  .app-subtitle { font-size: 13px; color: var(--text-dim); margin-bottom: 32px; }
+/* ===== app ===== */
+#app{position:relative;z-index:1;height:var(--vh,100dvh);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px);display:flex;flex-direction:column;max-width:720px;margin:0 auto;padding-top:env(safe-area-inset-top,0px)}
+header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;gap:10px}
+header h1{font-family:var(--serif);font-weight:800;font-size:20px;letter-spacing:.06em}
+.chip-count{font-size:13px;padding:4px 12px;border-radius:20px;background:rgba(232,244,241,.1);border:1px solid var(--line);font-variant-numeric:tabular-nums}
+.btn{padding:10px 18px;border-radius:14px;font-weight:700;font-size:15px;transition:transform .15s,background .2s,opacity .2s}
+.btn:active{transform:scale(.95)}
+.btn:disabled{opacity:.4;pointer-events:none}
+.btn.main{background:var(--broth);color:#2a1a05}
+.btn.ghost{background:rgba(232,244,241,.09);border:1px solid var(--line)}
 
-  .progress-wrap { width: 100%; max-width: 360px; }
+/* start */
+#start{flex:1;overflow:auto;padding:16px 20px 28px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;text-align:center}
+#start .lead{max-width:420px;color:var(--mute);font-size:15px}
+.rules{display:grid;gap:8px;text-align:left;font-size:14px;max-width:380px;width:100%}
+.rules div{display:flex;gap:10px;align-items:center;padding:10px 14px;border-radius:14px;background:rgba(232,244,241,.06);border:1px solid var(--line)}
+.rules span{font-size:20px}
+.genres{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.genres button{padding:8px 16px;border-radius:30px;border:1.5px solid var(--line);background:rgba(232,244,241,.05);font-size:14px;transition:all .2s}
+.genres button[aria-pressed=true]{background:var(--kelp);color:#04201c;border-color:var(--kelp);font-weight:700}
 
-  .progress-bar-track {
-    width: 100%; height: 10px;
-    background: var(--surface2); border-radius: 99px; overflow: hidden;
-    margin-bottom: 12px;
-  }
-  .progress-bar-fill {
-    height: 100%; width: 0%;
-    background: linear-gradient(90deg, var(--accent), var(--accent2));
-    border-radius: 99px;
-    transition: width 0.4s ease;
-    position: relative;
-  }
-  .progress-bar-fill::after {
-    content: ''; position: absolute; inset: 0;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-    animation: shimmer 1.5s infinite;
-  }
-  @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
-
-  .progress-text { font-size: 28px; font-weight: 700; color: var(--accent); }
-  .progress-label { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
-
-  .tutorial-card {
-    margin-top: 32px; max-width: 360px; width: 100%;
-    background: var(--surface); border: 1px solid rgba(56,189,248,0.2);
-    border-radius: 16px; padding: 20px; text-align: left;
-    animation: fadeSlideUp 0.6s ease both;
-  }
-  @keyframes fadeSlideUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  .tutorial-card h3 { font-size: 14px; color: var(--accent); margin-bottom: 10px; }
-  .tutorial-card li {
-    font-size: 12px; color: var(--text-dim); margin-bottom: 6px;
-    padding-left: 16px; position: relative; list-style: none;
-  }
-  .tutorial-card li::before {
-    content: '▸'; position: absolute; left: 0; color: var(--accent2);
-  }
-
-  .loading-tips {
-    margin-top: 20px; font-size: 11px; color: var(--text-dim);
-    animation: pulse 2s infinite;
-  }
-  @keyframes pulse { 0%,100% { opacity: 0.5; } 50% { opacity: 1; } }
-
-  /* ========== Chat Area ========== */
-  #chat-area {
-    flex: 1; overflow-y: auto; padding: 16px;
-    display: flex; flex-direction: column; gap: 12px;
-    scroll-behavior: smooth;
-    -webkit-overflow-scrolling: touch;
-  }
-  #chat-area::-webkit-scrollbar { width: 4px; }
-  #chat-area::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 4px; }
-
-  .msg {
-    max-width: 85%; padding: 12px 16px; border-radius: 18px;
-    font-size: 14px; line-height: 1.7; word-break: break-word;
-    animation: msgIn 0.35s cubic-bezier(0.34,1.56,0.64,1) both;
-  }
-  @keyframes msgIn {
-    from { opacity: 0; transform: translateY(12px) scale(0.96); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
-  }
-  .msg.user {
-    align-self: flex-end;
-    background: linear-gradient(135deg, var(--accent), #2563eb);
-    color: #fff; border-bottom-right-radius: 6px;
-  }
-  .msg.ai {
-    align-self: flex-start;
-    background: var(--surface); border: 1px solid rgba(255,255,255,0.06);
-    border-bottom-left-radius: 6px;
-  }
-  .msg.system {
-    align-self: center; text-align: center;
-    background: transparent; color: var(--text-dim);
-    font-size: 12px; max-width: 100%;
-  }
-  .msg .answer-tag {
-    display: inline-block; font-weight: 700; padding: 1px 8px;
-    border-radius: 6px; font-size: 13px; margin-bottom: 4px;
-  }
-  .answer-tag.yes { background: rgba(52,211,153,0.15); color: var(--success); }
-  .answer-tag.no { background: rgba(248,113,113,0.15); color: var(--danger); }
-  .answer-tag.irrelevant { background: rgba(251,191,36,0.15); color: var(--warn); }
-  .answer-tag.unknown { background: rgba(148,163,184,0.15); color: var(--text-dim); }
-
-  .typing-indicator { display: flex; gap: 4px; padding: 4px 0; }
-  .typing-indicator span {
-    width: 7px; height: 7px; border-radius: 50%; background: var(--text-dim);
-    animation: typing 1.2s infinite;
-  }
-  .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
-  .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
-  @keyframes typing { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-6px); } }
-
-  /* ========== Input Area ========== */
-  #input-area {
-    padding: 10px 12px 14px;
-    background: var(--surface);
-    border-top: 1px solid rgba(255,255,255,0.06);
-    display: flex; gap: 8px; align-items: flex-end;
-    padding-bottom: max(14px, env(safe-area-inset-bottom));
-  }
-  #input-area textarea {
-    flex: 1; resize: none; border: 1px solid rgba(255,255,255,0.1);
-    background: var(--surface2); color: var(--text);
-    border-radius: 22px; padding: 10px 16px;
-    font-size: 15px; font-family: inherit;
-    max-height: 100px; line-height: 1.4;
-    outline: none; transition: border-color 0.2s;
-  }
-  #input-area textarea:focus { border-color: var(--accent); }
-  #input-area textarea::placeholder { color: var(--text-dim); }
-
-  .send-btn {
-    width: 44px; height: 44px; border-radius: 50%;
-    border: none; cursor: pointer; flex-shrink: 0;
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
-    color: #fff; font-size: 18px;
-    display: flex; align-items: center; justify-content: center;
-    transition: transform 0.15s, opacity 0.2s;
-  }
-  .send-btn:active { transform: scale(0.92); }
-  .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-  /* ========== Header ========== */
-  #header {
-    padding: 12px 16px;
-    background: rgba(17,24,39,0.85); backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-bottom: 1px solid rgba(255,255,255,0.06);
-    display: flex; align-items: center; justify-content: space-between;
-    z-index: 10;
-  }
-  #header .h-title { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
-  #header .h-title span { font-size: 20px; }
-  .reset-btn {
-    background: var(--surface2); border: 1px solid rgba(255,255,255,0.1);
-    color: var(--text-dim); border-radius: 10px; padding: 6px 14px;
-    font-size: 12px; cursor: pointer; font-family: inherit;
-    transition: background 0.2s, color 0.2s;
-  }
-  .reset-btn:hover { background: var(--surface); color: var(--text); }
-
-  /* ========== Hidden ========== */
-  .hidden { display: none !important; }
-
-  /* ========== Safari WebGPU Banner ========== */
-  #webgpu-banner {
-    position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
-    background: #7f1d1d; color: #fecaca; padding: 12px 16px;
-    font-size: 12px; text-align: center; display: none;
-  }
-
-  @media (min-width: 768px) {
-    .msg { max-width: 75%; font-size: 15px; }
-    #chat-area { padding: 20px 24px; }
-    #input-area { padding: 12px 20px 18px; }
-  }
+/* play */
+#play{flex:1;min-height:0;display:flex;flex-direction:column}
+.problem{margin:0 14px 8px;padding:16px 18px;border-radius:20px;background:linear-gradient(160deg,rgba(242,180,90,.16),rgba(242,180,90,.05));border:1px solid rgba(242,180,90,.4);max-height:34vh;overflow:auto;animation:pop .5s cubic-bezier(.2,1.4,.4,1)}
+.problem h2{font-family:var(--serif);font-size:18px;color:var(--broth);margin-bottom:4px}
+.problem p{font-size:15px;line-height:1.8}
+@keyframes pop{from{transform:scale(.94);opacity:0}}
+#log{flex:1;min-height:0;overflow-y:auto;padding:8px 14px;display:flex;flex-direction:column;gap:10px;scroll-behavior:smooth}
+.msg{max-width:84%;padding:10px 14px;border-radius:18px;font-size:15px;animation:in .3s ease;word-break:break-word}
+@keyframes in{from{transform:translateY(8px);opacity:0}}
+.msg.me{align-self:flex-end;background:var(--kelp);color:#04201c;border-bottom-right-radius:6px;font-weight:500}
+.msg.ai{align-self:flex-start;background:rgba(232,244,241,.1);border:1px solid var(--line);border-bottom-left-radius:6px}
+.msg.sys{align-self:center;font-size:13px;color:var(--mute);background:none;text-align:center}
+.badge{display:inline-block;font-weight:700;padding:1px 12px;border-radius:12px;margin-right:6px}
+.badge.yes{background:var(--kelp);color:#04201c}
+.badge.no{background:var(--coral);color:#3a0b06}
+.badge.irr{background:rgba(232,244,241,.2)}
+.dots span{display:inline-block;width:8px;height:8px;margin:0 2px;border-radius:50%;background:var(--mute);animation:dot 1s infinite}
+.dots span:nth-child(2){animation-delay:.15s}.dots span:nth-child(3){animation-delay:.3s}
+@keyframes dot{40%{transform:translateY(-6px);background:var(--broth)}}
+.reveal{border-color:var(--broth);background:rgba(242,180,90,.14)}
+.win{animation:shake .6s}
+@keyframes shake{30%{transform:scale(1.04) rotate(-1deg)}60%{transform:scale(1.04) rotate(1deg)}}
+.actions{display:flex;gap:8px;padding:6px 14px 0;overflow-x:auto}
+.actions .btn{flex:none;padding:8px 14px;font-size:13px}
+.composer{display:flex;gap:8px;padding:10px 14px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}
+.composer input{flex:1;min-width:0;padding:13px 16px;border-radius:16px;border:1.5px solid var(--line);background:rgba(6,20,31,.7);color:var(--foam);font:inherit;font-size:16px}
+.composer input::placeholder{color:var(--mute)}
+.composer input:focus{border-color:var(--kelp);outline:0}
+.busy{display:flex;flex-direction:column;align-items:center;gap:14px;padding:40px 20px;text-align:center;color:var(--mute)}
+.busy .turtle{position:relative;margin:0;left:0}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 </style>
 </head>
 <body>
+<div class="bubbles" id="bubbles" aria-hidden="true"></div>
 
-<div id="app">
-  <!-- Loading Screen -->
-  <div id="loading">
-    <div class="turtle-logo">🐢</div>
-    <div class="app-title">AIウミガメのスープ</div>
-    <div class="app-subtitle">AIが問題を作り、AIが答える水平思考クイズ</div>
+<svg width="0" height="0" style="position:absolute"><defs>
+<symbol id="turtle" viewBox="0 0 100 64">
+  <ellipse cx="86" cy="30" rx="11" ry="9" fill="#5fd0bf"/><circle cx="90" cy="27" r="2" fill="#06141f"/>
+  <ellipse cx="22" cy="54" rx="11" ry="6" fill="#3fb8a8" transform="rotate(-18 22 54)"/>
+  <ellipse cx="62" cy="56" rx="12" ry="6" fill="#3fb8a8" transform="rotate(16 62 56)"/>
+  <path d="M8 46C8 22 28 8 48 8s40 14 40 38z" fill="#2f8f7f"/>
+  <path d="M8 46C8 22 28 8 48 8s40 14 40 38z" fill="none" stroke="#e8f4f1" stroke-opacity=".5" stroke-width="2"/>
+  <path d="M30 20l10 8-4 14M56 12l-2 18 18 6M40 28l14 2M36 42l-14 4" stroke="#e8f4f1" stroke-opacity=".45" stroke-width="2" fill="none" stroke-linecap="round"/>
+</symbol></defs></svg>
 
-    <div class="progress-wrap">
-      <div class="progress-bar-track">
-        <div class="progress-bar-fill" id="progress-bar"></div>
-      </div>
-      <div class="progress-text" id="progress-pct">0%</div>
-      <div class="progress-label" id="progress-label">モデルを準備中...</div>
+<!-- LOADER -->
+<section id="loader" aria-live="polite">
+  <div class="brand">ウミガメのスープ</div>
+  <div class="sub">AIと遊ぶ水平思考クイズ</div>
+  <div class="bowl" id="bowl" style="--fill:0%">
+    <div class="steam"><b style="--o:-30px"></b><b style="--o:-4px;animation-delay:.8s"></b><b style="--o:22px;animation-delay:1.5s"></b></div>
+    <div class="bowl-body"><div class="soup"></div></div>
+    <div class="bowl-rim"></div>
+    <svg class="turtle" style="bottom:98px" viewBox="0 0 100 64"><use href="#turtle"/></svg>
+  </div>
+  <div class="pct"><span id="pct">0</span><small>%</small></div>
+  <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="barwrap"><div id="barfill"></div></div>
+  <div class="status" id="status">AIを準備しています…</div>
+  <div class="status" style="min-height:0;color:var(--broth)">読み込み中は画面を閉じたり、他のアプリに切り替えないでください</div>
+  <div class="tut" id="tut" aria-label="遊び方">
+    <article class="slide on"><h3>遊び方はかんたん</h3>不思議な出題文を読み、「はい」か「いいえ」で答えられる質問を重ねて真相を推理します。
+      <div class="flow"><div>📖<small>問題を読む</small></div><div>🙋<small>質問する</small></div><div>🎯<small>真相を当てる</small></div></div></article>
+    <article class="slide"><h3>どっちが良い質問？</h3>出題「男はスープを飲んで涙を流した」
+      <div class="qz" id="qz"><button data-ok="0">男は誰ですか？</button><button data-ok="1">男はそのスープを初めて飲みましたか？</button></div><div id="qzfb"></div></article>
+    <article class="slide"><h3>こんな会話になります</h3>
+      <div class="demo"><div class="q" style="--t:.2s">その人は男性ですか？</div><div class="a" style="--t:1s">はい</div><div class="q" style="--t:1.9s">スープは本物でしたか？</div><div class="a" style="--t:2.7s">いいえ</div><div class="a" style="--t:3.7s">…本物じゃない？ 真相が見えてきた！</div></div></article>
+    <article class="slide"><h3>困ったときのボタン</h3>
+      <div class="tool"><b>💡</b>ヒント：着眼点を1つ教えてくれる</div>
+      <div class="tool"><b>🎯</b>答えを言う：推理を送ると判定してくれる</div>
+      <div class="tool"><b>🏳️</b>ギブアップ：真相を見られる</div>
+      <div class="tool" style="color:var(--mute)">準備ができたら自動で始まります</div></article>
+    <div class="dotsnav" id="dotsnav"></div>
+  </div>
+  <div class="err hidden" id="err"></div>
+</section>
+
+<!-- APP -->
+<main id="app" class="hidden">
+  <header>
+    <h1>ウミガメのスープ</h1>
+    <span class="chip-count hidden" id="count">質問 0 回</span>
+  </header>
+
+  <section id="start">
+    <svg class="turtle" style="position:relative;left:0;margin:0;width:96px" viewBox="0 0 100 64"><use href="#turtle"/></svg>
+    <p class="lead">不思議な物語の「なぜ？」を、質問だけで解き明かそう。AIが問題を作り、あなたの質問に答えます。</p>
+    <div class="rules">
+      <div><span>🙋</span>「はい」か「いいえ」で答えられる質問をする</div>
+      <div><span>🧩</span>答えが分かったら「答えを言う」で推理を送る</div>
+      <div><span>💡</span>行き詰まったらヒントも出せます</div>
     </div>
-
-    <div class="tutorial-card">
-      <h3>🎮 遊び方</h3>
-      <ul>
-        <li>AIが不可解な「問題」を出題します</li>
-        <li>あなたは「はい / いいえ」で答えられる質問をします</li>
-        <li>AIが「はい」「いいえ」「関係ありません」で回答</li>
-        <li>真相を推理して、答えを入力してみよう！</li>
-      </ul>
+    <div class="genres" id="genres" role="group" aria-label="ジャンル">
+      <button aria-pressed="true" data-g="おまかせ">おまかせ</button>
+      <button aria-pressed="false" data-g="日常の何気ない出来事">日常</button>
+      <button aria-pressed="false" data-g="ほのぼのとした温かい話">ほのぼの</button>
+      <button aria-pressed="false" data-g="ミステリー風の少し怖い話">ミステリー</button>
     </div>
+    <p id="iosTip" class="hidden" style="font-size:12px;color:var(--mute);max-width:340px">💡 共有ボタン →「ホーム画面に追加」から開くと、AIの保存が長持ちして次回も速く起動します</p>
+    <p id="preNote" style="font-size:13px;color:var(--mute);min-height:1.6em"></p>
+    <button class="btn main" id="startBtn" style="font-size:17px;padding:14px 34px">問題を作る</button>
+  </section>
 
-    <div class="loading-tips" id="loading-tip">💡 ヒントを準備中...</div>
-  </div>
-
-  <!-- Header -->
-  <div id="header" class="hidden">
-    <div class="h-title"><span>🐢</span> AIウミガメのスープ</div>
-    <button class="reset-btn" id="reset-btn">新しい問題</button>
-  </div>
-
-  <!-- Chat Area -->
-  <div id="chat-area" class="hidden"></div>
-
-  <!-- Input Area -->
-  <div id="input-area" class="hidden">
-    <textarea id="user-input" rows="1" placeholder="質問や答えを入力..." enterkeyhint="send"></textarea>
-    <button class="send-btn" id="send-btn" aria-label="送信">➤</button>
-  </div>
-</div>
-
-<div id="webgpu-banner"></div>
+  <section id="play" class="hidden">
+    <div class="problem"><h2 id="ptitle"></h2><p id="ptext"></p></div>
+    <div id="log" aria-live="polite"></div>
+    <div class="actions">
+      <button class="btn ghost" id="hintBtn">💡 ヒント</button>
+      <button class="btn ghost" id="guessBtn">🎯 答えを言う</button>
+      <button class="btn ghost" id="giveBtn">🏳️ ギブアップ</button>
+      <button class="btn ghost" id="newBtn">🔄 新しい問題</button>
+    </div>
+    <div class="composer">
+      <input id="input" type="text" placeholder="質問を入力（例：その人は男性ですか？）" enterkeyhint="send" autocomplete="off" maxlength="80">
+      <button class="btn main" id="sendBtn">送る</button>
+    </div>
+  </section>
+</main>
 
 <script type="module">
-import * as webllm from "https://esm.run/@mlc-ai/web-llm@0.2.83";
+import * as webllm from "https://esm.run/@mlc-ai/web-llm";
 
-// ============================================================
-//  設定
-// ============================================================
-const MODEL_ID = "SmolLM2-135M-Instruct-q0f16-MLC";
-const SYSTEM_PROMPT = `あなたは「ウミガメのスープ」のゲームマスターです。ルール:
-- プレイヤーが「はい/いいえ」で答えられる質問をします。
-- あなたは必ず次の4つのいずれかで答えてください: 「はい」「いいえ」「関係ありません」「答えられません」。
-- 答えの前に必ず [[YES]] [[NO]] [[IRRELEVANT]] [[UNKNOWN]] のタグを付けてください。
-- 余計な説明は一切しないでください。
-- プレイヤーが真相を言い当てたら [[CORRECT]] と答えてください。`;
+/* ---------- model: 軽量。?lite を付けるとさらに小さいモデルに ---------- */
+/* 既定は最軽量(0.5B・約0.3GB)。?hq を付けると高精度な1.5B(約0.9GB) */
+const HQ = new URLSearchParams(location.search).has("hq");
+const SIZE = HQ ? "1.5B" : "0.5B";
+navigator.storage?.persist?.();
+const $ = id => document.getElementById(id);
 
-const TIPS = [
-  "💡 モデルは約78MB。一度ダウンロードすれば次回から爆速です",
-  "💡 質問は「はい」「いいえ」で答えられる形にしましょう",
-  "💡 意外な事実が隠れているかも？ 常識を疑ってみよう",
-  "💡 「関係ありません」と言われたら別の方向を考えよう",
-  "💡 正解に近づくとAIの反応が変わります",
-  "💡 答えが分かったら、そのまま入力してみよう！",
-  "💡 Safari 26以降でWebGPUが使えます。設定→Safari→詳細で確認",
+/* ---------- iOS: キーボードで画面が隠れないよう表示領域に合わせる ---------- */
+const vv=window.visualViewport;
+const fit=()=>{document.documentElement.style.setProperty("--vh",(vv?vv.height:innerHeight)+"px"); if(vv&&vv.offsetTop) window.scrollTo(0,0);};
+fit(); vv?.addEventListener("resize",fit); vv?.addEventListener("scroll",fit); addEventListener("orientationchange",()=>setTimeout(fit,300));
+const isIOS=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+if(isIOS&&!navigator.standalone) $("iosTip").classList.remove("hidden");
+
+/* ---------- bubbles ---------- */
+const bw = $("bubbles");
+for(let i=0;i<14;i++){const b=document.createElement("i");
+  b.style.cssText=`--s:${8+Math.random()*26}px;--x:${Math.random()*100}%;--d:${9+Math.random()*10}s;--l:${-Math.random()*14}s;--w:${(Math.random()-.5)*60}px`;bw.appendChild(b);}
+
+/* ---------- loader ---------- */
+/* ---------- ロード中のミニチュートリアル ---------- */
+const slides=[...document.querySelectorAll("#tut .slide")], nav=$("dotsnav");
+let cur=0,touched=false;
+slides.forEach((_,i)=>{const b=document.createElement("button");b.setAttribute("aria-label",`${i+1}枚目`);b.onclick=()=>{touched=true;go(i)};nav.appendChild(b)});
+function go(i){cur=i;slides.forEach((x,j)=>x.classList.toggle("on",i===j));[...nav.children].forEach((b,j)=>b.setAttribute("aria-current",i===j))}
+go(0);
+$("qz").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;touched=true;
+  const ok=b.dataset.ok==="1";b.classList.add(ok?"ok":"ng");
+  $("qzfb").textContent=ok?"正解！はい／いいえで答えられる形です。":"惜しい！「誰」だとはい／いいえで答えられません。";
+  if(ok)setTimeout(()=>go(2),1600)});
+const slideTimer=setInterval(()=>{if(!touched)go((cur+1)%slides.length)},7000);
+let shown=0,target=0;
+const tick=()=>{ if(shown<target){shown=Math.min(target,shown+Math.max(.6,(target-shown)*.14));}
+  const p=Math.floor(shown); $("pct").textContent=p; $("barfill").style.width=shown+"%";
+  $("bowl").style.setProperty("--fill",Math.min(100,shown*1.05)+"%"); $("barwrap").setAttribute("aria-valuenow",p);
+  requestAnimationFrame(tick)}; tick();
+function fail(msg){ clearInterval(slideTimer); $("status").classList.add("hidden"); const e=$("err"); e.classList.remove("hidden"); e.innerHTML=msg; }
+
+let engine=null;
+async function boot(){
+  if(!navigator.gpu){ return fail("このブラウザ／OSではWebGPUが使えません。<br>iPhone・iPadは <b>iOS / iPadOS 26 以降</b>にアップデートしてお試しください（SafariでもChromeでも同じです）。"); }
+  let wl=null; try{wl=await navigator.wakeLock?.request("screen")}catch{}
+  let model;
+  try{
+    const ad=await navigator.gpu.requestAdapter();
+    if(!ad) throw 0;
+    const f16=ad.features.has("shader-f16");
+    model=`Qwen2.5-${SIZE}-Instruct-${f16?"q4f16_1":"q4f32_1"}-MLC`;
+  }catch(e){ return fail("GPUを初期化できませんでした。ページを再読み込みしてください。"); }
+  try{
+    let cached=false; try{cached=await webllm.hasModelInCache(model)}catch{}
+    if(cached) $("status").textContent="保存済みのAIを起動しています…（数秒）";
+    engine=await webllm.CreateMLCEngine(model,{initProgressCallback:r=>{
+      target=Math.max(target,Math.round((r.progress||0)*100));
+      $("status").textContent=r.text||"読み込み中…";
+    }},{context_window_size:2048});
+    target=100; $("status").textContent="準備完了！"; prefetch();
+    await new Promise(r=>{const w=()=>shown>=99.5?r():setTimeout(w,60);w()});
+    clearInterval(slideTimer);
+    try{wl?.release()}catch{} $("loader").classList.add("out"); $("app").classList.remove("hidden");
+    setTimeout(()=>$("loader").remove(),750);
+  }catch(e){ console.error(e); fail("AIの読み込みに失敗しました。<br>通信状況や空き容量を確認して、再読み込みしてください。<br><small>通信が安定した環境でもう一度お試しください。</small>"); }
+}
+boot();
+
+/* ---------- puzzle state ---------- */
+let puzzle=null,qCount=0,busy=false,genre="おまかせ";
+let history=[],cache=new Map(),hintsGiven=[];
+const SEEDS=[
+ {title:"帰ってきた夫",problem:"男は海辺のレストランでウミガメのスープを一口飲み、涙を流しながら店を出て、そのまま帰らぬ人となった。なぜ？",answer:"男はかつて遭難し、仲間がウミガメのスープだと偽って出してくれた肉で生き延びた。今日本物を飲んで味が違うと気づき、あれは亡くなった仲間の肉だったと悟り、絶望して命を絶った。",facts:["男は過去に海で遭難した","遭難中、仲間が肉を「ウミガメのスープ」だと言って男に食べさせた","その肉は亡くなった仲間の肉だった","男は当時そのことを知らなかった","レストランで本物を飲み、味が違うと気づいた","男は真実を悟り、自ら命を絶った"]},
+ {title:"消えたエレベーター",problem:"ある男は、いつも10階でエレベーターを降りて、残りは階段で15階まで上がる。ただし雨の日は最上階までエレベーターで行く。なぜ？",answer:"男は背が低くて15階のボタンに手が届かず、10階のボタンまでしか押せない。雨の日は傘を持っていて、それでボタンを押せるから。",facts:["男は背が低い","15階のボタンには手が届かない","10階のボタンには手が届く","雨の日は傘を持っている","傘を使ってボタンを押せる","男は健康で、階段を上ることはできる"]}
 ];
+const THEMES=["夜の電車","古い写真","誕生日","雨の日","コンビニ","図書館","灯台","手紙","エレベーター","動物園","結婚式","忘れ物","砂時計","時計","電話","鏡","公園のベンチ","ラーメン屋","傘","星空"];
+const pick=a=>a[Math.floor(Math.random()*a.length)];
 
-// ============================================================
-//  DOM 参照
-// ============================================================
-const $ = (id) => document.getElementById(id);
-const loadingEl = $("loading");
-const progressBar = $("progress-bar");
-const progressPct = $("progress-pct");
-const progressLabel = $("progress-label");
-const loadingTip = $("loading-tip");
-const header = $("header");
-const chatArea = $("chat-area");
-const inputArea = $("input-area");
-const userInput = $("user-input");
-const sendBtn = $("send-btn");
-const resetBtn = $("reset-btn");
-const webgpuBanner = $("webgpu-banner");
-
-// ============================================================
-//  状態
-// ============================================================
-let engine = null;
-let isLoading = false;
-let isGenerating = false;
-let currentPuzzle = null;
-let conversationHistory = [];
-let tipIndex = 0;
-let tipInterval = null;
-
-// ============================================================
-//  UI ヘルパー
-// ============================================================
-function setProgress(pct, label) {
-  progressBar.style.width = Math.min(100, Math.max(0, pct)) + "%";
-  progressPct.textContent = Math.round(pct) + "%";
-  if (label) progressLabel.textContent = label;
+async function chat(messages,opt={}){
+  const r=await engine.chat.completions.create({messages,stream:false,...opt});
+  return (r.choices[0].message.content||"").trim();
 }
+function jsonOf(t){ const m=t.match(/\{[\s\S]*\}/); if(!m) return null; try{return JSON.parse(m[0])}catch{return null} }
+const busyMsg=t=>{const m=$("busyMsg"); if(m) m.textContent=t};
 
-function showLoading() {
-  loadingEl.classList.remove("hidden");
-  header.classList.add("hidden");
-  chatArea.classList.add("hidden");
-  inputArea.classList.add("hidden");
-}
-
-function hideLoading() {
-  loadingEl.classList.add("hidden");
-  header.classList.remove("hidden");
-  chatArea.classList.remove("hidden");
-  inputArea.classList.remove("hidden");
-  if (tipInterval) { clearInterval(tipInterval); tipInterval = null; }
-}
-
-function addMessage(text, role, answerTag) {
-  const div = document.createElement("div");
-  div.className = "msg " + role;
-  if (answerTag) {
-    const tag = document.createElement("div");
-    tag.className = "answer-tag " + answerTag;
-    tag.textContent = answerTag === "yes" ? "はい" :
-                      answerTag === "no" ? "いいえ" :
-                      answerTag === "irrelevant" ? "関係ありません" :
-                      "答えられません";
-    div.appendChild(tag);
-    div.appendChild(document.createElement("br"));
+/* 手順1：まず「真相メモ」を書く → 手順2：その真相を隠した問題文を書く */
+async function makePuzzle(){
+  const theme=pick(THEMES), ex=pick(SEEDS);
+  const sys="あなたは「ウミガメのスープ」（水平思考クイズ）の出題者です。必ず日本語のJSONのみを出力します。";
+  for(let i=0;i<2;i++){
+    try{
+      busyMsg("真相をひそかに考えています…");
+      const t1=await chat([{role:"system",content:sys},{role:"user",content:`問題の「真相メモ」を作ってください。ジャンル：${genre}。キーワード：${theme}。
+- title：6文字以内の題名
+- answer：2〜3文の、論理的に筋の通った真相
+- facts：真相を成り立たせる事実を、短い1文で5〜7個（人物・場所・原因・結果・きっかけなど）
+- 過激な暴力や性的な内容は避ける
+例：${JSON.stringify({title:ex.title,answer:ex.answer,facts:ex.facts})}
+この例とは違う新しい真相メモを、同じJSON形式で出力してください。`}],{temperature:.9,max_tokens:520,response_format:{type:"json_object"}});
+      const o=jsonOf(t1);
+      if(!o||!o.answer||o.answer.length<12||!Array.isArray(o.facts)||o.facts.length<3) continue;
+      busyMsg("真相を隠した問題文を作っています…");
+      const t2=await chat([{role:"system",content:sys},{role:"user",content:`次の真相を持つ問題文を作ってください。
+【真相】${o.answer}
+条件：2〜3文で、状況が不思議で「なぜ？」と思える出題文。真相の核心（理由・正体）は絶対に書かない。
+例：{"problem":${JSON.stringify(ex.problem)}}
+JSON形式 {"problem":"..."} で出力してください。`}],{temperature:.6,max_tokens:220,response_format:{type:"json_object"}});
+      const p=jsonOf(t2);
+      if(p&&p.problem&&p.problem.length>12) return {title:o.title||"謎の物語",problem:p.problem,answer:o.answer,facts:o.facts.map(String).slice(0,8)};
+    }catch(e){console.warn(e)}
   }
-  div.appendChild(document.createTextNode(text));
-  chatArea.appendChild(div);
-  chatArea.scrollTop = chatArea.scrollHeight;
-  return div;
+  return pick(SEEDS);
 }
 
-function addSystemMessage(text) {
-  const div = document.createElement("div");
-  div.className = "msg system";
-  div.textContent = text;
-  chatArea.appendChild(div);
-  chatArea.scrollTop = chatArea.scrollHeight;
+/* ---------- UI helpers ---------- */
+const log=$("log");
+function add(cls,html,isText){const d=document.createElement("div");d.className="msg "+cls;
+  if(isText) d.textContent=html; else d.innerHTML=html; log.appendChild(d); log.scrollTop=log.scrollHeight; return d;}
+function esc(s){return s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function typing(){return add("ai",'<span class="dots"><span></span><span></span><span></span></span>')}
+function setBusy(v){busy=v;["sendBtn","hintBtn","guessBtn","giveBtn","newBtn"].forEach(i=>$(i).disabled=v)}
+function updateCount(){$("count").textContent=`質問 ${qCount} 回`}
+
+/* ---------- 先読み：開始画面にいる間に最初の問題を作っておく ---------- */
+let pre=null,preGenre=null;
+function prefetch(){ preGenre=genre; $("preNote").textContent="問題を先に準備しています…";
+  pre=makePuzzle(); pre.then(()=>{ if(pre&&preGenre===genre) $("preNote").textContent="問題の準備ができました！すぐ始められます"; }); }
+
+/* ---------- new game ---------- */
+async function newGame(){
+  $("start").classList.add("hidden"); $("play").classList.add("hidden"); $("count").classList.add("hidden");
+  const b=document.createElement("div"); b.className="busy"; b.id="busy";
+  b.innerHTML='<svg class="turtle" style="width:90px" viewBox="0 0 100 64"><use href="#turtle"/></svg><div id="busyMsg">AIが問題を考えています…</div><div class="dots"><span></span><span></span><span></span></div>';
+  $("app").appendChild(b);
+  setBusy(true);
+  history=[];cache.clear();hintsGiven=[];
+  if(pre&&preGenre===genre){ puzzle=await pre; } else { puzzle=await makePuzzle(); }
+  pre=null; qCount=0; updateCount();
+  b.remove();
+  $("ptitle").textContent="「"+puzzle.title+"」"; $("ptext").textContent=puzzle.problem;
+  log.innerHTML=""; add("sys","質問してみよう。「はい」「いいえ」「関係ない」で答えます。");
+  $("play").classList.remove("hidden"); $("count").classList.remove("hidden");
+  setBusy(false); $("input").focus();
 }
 
-function showTyping() {
-  const div = document.createElement("div");
-  div.className = "msg ai";
-  div.id = "typing-msg";
-  div.innerHTML = '<div class="typing-indicator"><span></span><span></span><span></span></div>';
-  chatArea.appendChild(div);
-  chatArea.scrollTop = chatArea.scrollHeight;
-  return div;
+/* ---------- judge ---------- */
+/* 出題者のメモ：動かない情報を先頭に、増える履歴を末尾に置く（記憶の安定＆高速化） */
+const LABEL={yes:"はい",no:"いいえ",irr:"関係ありません"};
+const ctx=()=>{
+  const f=(puzzle.facts||[]).map((x,i)=>`${i+1}. ${x}`).join("\n")||"（なし）";
+  const h=history.slice(-20).map(x=>`・${x.q} → ${x.a}`).join("\n")||"（まだなし）";
+  return `あなたは「ウミガメのスープ」の出題者です。以下は出題者だけが知る秘密のメモです。
+【問題】${puzzle.problem}
+【真相】${puzzle.answer}
+【確定している事実】
+${f}
+【これまでの質問と回答】（これらと矛盾する答えは絶対にしない）
+${h}`;
+};
+
+async function ask(q){
+  const key=q.replace(/[\s、。，．？?！!]/g,"");
+  if(cache.has(key)) return cache.get(key);
+  const sys=ctx()+`
+プレイヤーの新しい質問を、真相と確定事実に照らして次のいずれか1つだけで答えてください。説明は禁止です。
+- はい（真相や確定事実に当てはまる）
+- いいえ（真相や確定事実に反する）
+- 関係ありません（真相と無関係、または判断に影響しない）`;
+  const t=await chat([{role:"system",content:sys},{role:"user",content:"質問：男性ですか？"},{role:"assistant",content:"関係ありません"},{role:"user",content:"質問："+q}],{temperature:0,max_tokens:8});
+  const r=(t.includes("いいえ")||t.includes("違"))?"no":t.includes("はい")?"yes":"irr";
+  cache.set(key,r); history.push({q,a:LABEL[r]});
+  return r;
+}
+const BADGE={yes:'<span class="badge yes">はい</span>',no:'<span class="badge no">いいえ</span>',irr:'<span class="badge irr">関係ありません</span>'};
+
+async function send(){
+  const q=$("input").value.trim(); if(!q||busy) return;
+  $("input").value=""; add("me",q,true); qCount++; updateCount(); setBusy(true);
+  const t=typing();
+  try{ const r=await ask(q); t.innerHTML=BADGE[r]; }catch(e){ t.textContent="うまく答えられませんでした。もう一度どうぞ。"; }
+  setBusy(false); $("input").focus();
 }
 
-function removeTyping() {
-  const el = $("typing-msg");
-  if (el) el.remove();
+async function hint(){
+  setBusy(true); const t=typing();
+  try{
+    const h=await chat([{role:"system",content:ctx()+"\nプレイヤーにヒントを1文（40字以内）で出してください。真相をそのまま言わず、着眼点だけを示してください。"+(hintsGiven.length?"\nすでに出したヒント（重複禁止）：\n"+hintsGiven.join("\n"):"")},{role:"user",content:"ヒントをください"}],{temperature:.5,max_tokens:80});
+    hintsGiven.push(h); t.innerHTML="💡 "+esc(h);
+  }catch{t.textContent="ヒントを作れませんでした。";}
+  setBusy(false);
 }
 
-function autoResizeTextarea() {
-  userInput.style.height = "auto";
-  userInput.style.height = Math.min(userInput.scrollHeight, 100) + "px";
+let guessMode=false;
+function toggleGuess(){
+  guessMode=!guessMode;
+  $("guessBtn").textContent=guessMode?"✖ 推理をやめる":"🎯 答えを言う";
+  $("input").placeholder=guessMode?"あなたの推理を入力":"質問を入力（例：その人は男性ですか？）";
+  $("sendBtn").textContent=guessMode?"推理する":"送る"; $("input").focus();
 }
-
-function detectAnswerTag(text) {
-  if (text.includes("[[YES]]") || text.includes("YES") || text.startsWith("はい")) return "yes";
-  if (text.includes("[[NO]]") || text.includes("NO") || text.startsWith("いいえ")) return "no";
-  if (text.includes("[[IRRELEVANT]]") || text.includes("関係ありません") || text.includes("関係ない")) return "irrelevant";
-  if (text.includes("[[UNKNOWN]]") || text.includes("答えられません")) return "unknown";
-  if (text.includes("[[CORRECT]]") || text.includes("正解")) return "yes";
-  return null;
+async function guess(){
+  const g=$("input").value.trim(); if(!g||busy) return;
+  $("input").value=""; add("me","🎯 "+g,true); setBusy(true); const t=typing();
+  try{
+    const r=await chat([{role:"system",content:ctx()+"\nプレイヤーの推理が真相の核心を捉えているか判定し、「正解」「惜しい」「不正解」のどれか1語だけで答えてください。"},{role:"user",content:"推理："+g}],{temperature:0,max_tokens:8});
+    if(r.includes("不正解")) t.innerHTML='<span class="badge no">不正解</span>もう少し質問してみよう。';
+    else if(r.includes("惜しい")) t.innerHTML='<span class="badge irr">惜しい！</span>あと一歩です。';
+    else if(r.includes("正解")){ t.remove(); win(); }
+    else t.innerHTML='<span class="badge irr">惜しい？</span>もう少し詳しく教えてください。';
+  }catch{t.textContent="判定できませんでした。";}
+  setBusy(false);
 }
+function win(){ add("ai reveal win",`🎉 <b>正解！</b>（質問 ${qCount} 回）<br>${esc(puzzle.answer)}`); toggleGuessOff(); }
+function giveUp(){ add("ai reveal",`🏳️ <b>真相</b><br>${esc(puzzle.answer)}`); toggleGuessOff(); }
+function toggleGuessOff(){ if(guessMode) toggleGuess(); }
 
-function cleanAnswerText(text) {
-  return text.replace(/\[\[.*?\]\]/g, "").trim();
-}
-
-// ============================================================
-//  WebGPU 検出
-// ============================================================
-async function checkWebGPU() {
-  if (!navigator.gpu) {
-    webgpuBanner.textContent = "⚠️ このブラウザはWebGPUに対応していません。Safari 26以降、またはChrome/Edgeをお使いください。";
-    webgpuBanner.style.display = "block";
-    return false;
-  }
-  try {
-    const adapter = await navigator.gpu.requestAdapter();
-    if (!adapter) {
-      webgpuBanner.textContent = "⚠️ GPUアダプタが見つかりません。デバイスの設定を確認してください。";
-      webgpuBanner.style.display = "block";
-      return false;
-    }
-  } catch (e) {
-    webgpuBanner.textContent = "⚠️ WebGPU初期化エラー: " + e.message;
-    webgpuBanner.style.display = "block";
-    return false;
-  }
-  return true;
-}
-
-// ============================================================
-//  LLM 初期化
-// ============================================================
-async function initEngine() {
-  if (isLoading) return;
-  isLoading = true;
-
-  setProgress(0, "WebGPUを確認中...");
-  const hasGPU = await checkWebGPU();
-  if (!hasGPU) {
-    setProgress(0, "WebGPU未対応のため初期化を中止しました");
-    isLoading = false;
-    return;
-  }
-
-  setProgress(5, "モデルをダウンロード中...");
-
-  try {
-    engine = await webllm.CreateMLCEngine(MODEL_ID, {
-      initProgressCallback: (report) => {
-        const progress = report.progress || 0;
-        const pct = Math.round(progress * 100);
-        setProgress(pct, report.text || "読み込み中...");
-        if (pct > 90) setProgress(100, "最終処理中...");
-      },
-    });
-
-    setProgress(100, "準備完了！");
-    await new Promise(r => setTimeout(r, 600));
-    hideLoading();
-    startNewGame();
-  } catch (err) {
-    console.error(err);
-    setProgress(0, "エラー: " + err.message);
-  } finally {
-    isLoading = false;
-  }
-}
-
-// ============================================================
-//  ゲーム開始
-// ============================================================
-async function startNewGame() {
-  if (isGenerating) return;
-  isGenerating = true;
-  chatArea.innerHTML = "";
-  conversationHistory = [];
-
-  addSystemMessage("新しい問題を生成中...");
-  const typing = showTyping();
-
-  try {
-    const puzzlePrompt = `水平思考クイズの問題を1つ作成してください。必ず以下の形式で出力:
-【問題】〇〇〇〇
-【真相】〇〇〇〇
-問題は短く、不可解な状況を描写してください。真相は論理的で、納得感のあるものにしてください。`;
-    conversationHistory.push({ role: "system", content: SYSTEM_PROMPT });
-    conversationHistory.push({ role: "user", content: puzzlePrompt });
-
-    const reply = await engine.chat.completions.create({
-      messages: conversationHistory,
-      temperature: 0.9,
-      max_tokens: 300,
-    });
-
-    const content = reply.choices[0].message.content;
-    conversationHistory.push({ role: "assistant", content });
-
-    removeTyping();
-    const puzzleMatch = content.match(/【問題】([\s\S]*?)【真相】/);
-    const truthMatch = content.match(/【真相】([\s\S]*)/);
-
-    const puzzleText = puzzleMatch ? puzzleMatch[1].trim() : content;
-    const truthText = truthMatch ? truthMatch[1].trim() : "";
-
-    currentPuzzle = { puzzle: puzzleText, truth: truthText };
-
-    addSystemMessage("問題が出題されました。質問をどうぞ！");
-    addMessage("【問題】\n" + puzzleText, "ai");
-
-    // 真相をコンテキストに追加
-    conversationHistory.push({ role: "user", content: `この問題の真相は「${truthText}」です。プレイヤーの質問に答えてください。` });
-    conversationHistory.push({ role: "assistant", content: "了解しました。プレイヤーの質問に「はい」「いいえ」「関係ありません」「答えられません」で答えます。" });
-
-  } catch (err) {
-    removeTyping();
-    addSystemMessage("エラーが発生しました: " + err.message);
-  } finally {
-    isGenerating = false;
-  }
-}
-
-// ============================================================
-//  ユーザー入力送信
-// ============================================================
-async function handleSend() {
-  const text = userInput.value.trim();
-  if (!text || isGenerating) return;
-
-  userInput.value = "";
-  autoResizeTextarea();
-  addMessage(text, "user");
-  conversationHistory.push({ role: "user", content: text });
-
-  isGenerating = true;
-  sendBtn.disabled = true;
-  const typing = showTyping();
-
-  try {
-    const reply = await engine.chat.completions.create({
-      messages: conversationHistory,
-      temperature: 0.3,
-      max_tokens: 80,
-    });
-
-    const raw = reply.choices[0].message.content;
-    conversationHistory.push({ role: "assistant", content: raw });
-
-    removeTyping();
-    const tag = detectAnswerTag(raw);
-    const clean = cleanAnswerText(raw);
-
-    if (tag === "yes" && (raw.includes("正解") || raw.includes("[[CORRECT]]"))) {
-      addMessage("🎉 正解！\n" + (currentPuzzle ? "真相: " + currentPuzzle.truth : clean), "ai", "yes");
-      addSystemMessage("「新しい問題」ボタンで次のゲームへ");
-    } else {
-      addMessage(clean || raw, "ai", tag);
-    }
-  } catch (err) {
-    removeTyping();
-    addMessage("エラー: " + err.message, "ai", "unknown");
-  } finally {
-    isGenerating = false;
-    sendBtn.disabled = false;
-    userInput.focus();
-  }
-}
-
-// ============================================================
-//  イベントリスナー
-// ============================================================
-sendBtn.addEventListener("click", handleSend);
-userInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && !e.shiftKey) {
-    e.preventDefault();
-    handleSend();
-  }
-});
-userInput.addEventListener("input", autoResizeTextarea);
-
-resetBtn.addEventListener("click", () => {
-  if (!engine || isGenerating) return;
-  startNewGame();
-});
-
-// ヒントローテーション
-function startTipRotation() {
-  tipInterval = setInterval(() => {
-    tipIndex = (tipIndex + 1) % TIPS.length;
-    loadingTip.style.opacity = "0";
-    setTimeout(() => {
-      loadingTip.textContent = TIPS[tipIndex];
-      loadingTip.style.opacity = "1";
-    }, 300);
-  }, 3500);
-}
-
-// ============================================================
-//  起動
-// ============================================================
-showLoading();
-startTipRotation();
-initEngine();
-
-// ページ離脱時にエンジンを解放
-window.addEventListener("beforeunload", () => {
-  if (engine) engine.unload();
-});
+/* ---------- events ---------- */
+$("genres").addEventListener("click",e=>{const b=e.target.closest("button"); if(!b) return;
+  [...$("genres").children].forEach(x=>x.setAttribute("aria-pressed",x===b)); genre=b.dataset.g; if(pre&&preGenre!==genre) $("preNote").textContent="ジャンルを変えたので、開始時に新しく作ります";});
+$("startBtn").onclick=newGame;
+$("newBtn").onclick=()=>{ toggleGuessOff(); newGame(); };
+$("hintBtn").onclick=hint; $("giveBtn").onclick=giveUp; $("guessBtn").onclick=toggleGuess;
+$("sendBtn").onclick=()=>guessMode?guess():send();
+$("input").addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.isComposing&&e.keyCode!==229){ guessMode?guess():send(); }});
 </script>
 </body>
 </html>
