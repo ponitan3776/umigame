@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#06141f">
+<title>ウミガメのスープ | AIと遊ぶ水平思考クイズ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@600;800&family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --abyss:#06141f; --deep:#0c2a3a; --mid:#143d52; --kelp:#3fb8a8; --broth:#f2b45a;
+  --foam:#e8f4f1; --mute:#8fb0b8; --coral:#ff7a6b; --line:rgba(232,244,241,.14);
+  --serif:"Shippori Mincho","Hiragino Mincho ProN","Yu Mincho",serif;
+  --sans:"Zen Maru Gothic","Hiragino Maru Gothic ProN","Hiragino Sans","Meiryo",sans-serif;
+}
+*{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{font-family:var(--sans);background:radial-gradient(120% 80% at 50% 0%,var(--mid) 0%,var(--deep) 45%,var(--abyss) 100%) fixed;color:var(--foam);overflow:hidden;line-height:1.7}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+:focus-visible{outline:3px solid var(--broth);outline-offset:2px}
+.hidden{display:none!important}
+
+/* bubbles */
+.bubbles{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:0}
+.bubbles i{position:absolute;bottom:-40px;width:var(--s);height:var(--s);border-radius:50%;border:1.5px solid rgba(232,244,241,.25);background:rgba(232,244,241,.05);animation:rise var(--d) linear infinite;animation-delay:var(--l);left:var(--x)}
+@keyframes rise{to{transform:translateY(-115vh) translateX(var(--w))}}
+
+/* ===== loader ===== */
+#loader{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:24px;padding-top:calc(24px + env(safe-area-inset-top,0px));padding-bottom:calc(24px + env(safe-area-inset-bottom,0px));background:radial-gradient(120% 80% at 50% 0%,var(--mid),var(--abyss));transition:opacity .7s ease,transform .7s ease}
+#loader.out{opacity:0;transform:scale(1.06);pointer-events:none}
+.brand{font-family:var(--serif);font-weight:800;font-size:clamp(30px,8vw,46px);letter-spacing:.08em;text-align:center;line-height:1.3}
+.sub{color:var(--mute);font-size:14px;text-align:center}
+.bowl{position:relative;width:200px;height:150px}
+.steam{position:absolute;top:0;left:50%;width:100%;height:50px;transform:translateX(-50%)}
+.steam b{position:absolute;bottom:0;width:8px;height:34px;border-radius:8px;background:linear-gradient(to top,rgba(232,244,241,.5),transparent);animation:steam 2.6s ease-in-out infinite;left:calc(50% + var(--o))}
+@keyframes steam{0%{transform:translateY(8px) scaleY(.6);opacity:0}40%{opacity:.9}100%{transform:translateY(-24px) scaleY(1.2) translateX(6px);opacity:0}}
+.bowl-body{position:absolute;bottom:0;left:0;right:0;height:96px;border-radius:0 0 100px 100px;border:3px solid var(--foam);border-top:0;overflow:hidden;background:rgba(6,20,31,.5)}
+.soup{position:absolute;left:-10%;width:120%;bottom:0;height:var(--fill,0%);background:linear-gradient(var(--broth),#c9822c);transition:height .5s ease}
+.soup::before,.soup::after{content:"";position:absolute;left:-50%;top:-12px;width:200%;height:24px;background:var(--broth);border-radius:42%;animation:slosh 3.2s linear infinite}
+.soup::after{opacity:.5;top:-9px;animation-duration:4.6s;animation-direction:reverse}
+@keyframes slosh{to{transform:translateX(25%)}}
+.bowl-rim{position:absolute;left:-8px;right:-8px;bottom:93px;height:7px;border-radius:7px;background:var(--foam)}
+.turtle{position:absolute;bottom:-4px;left:50%;width:78px;margin-left:-39px;animation:bob 2.4s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-8px) rotate(-3deg)}}
+.pct{font-family:var(--serif);font-weight:800;font-size:56px;line-height:1;font-variant-numeric:tabular-nums}
+.pct small{font-size:24px;margin-left:2px;color:var(--broth)}
+.bar{width:min(340px,86vw);height:14px;border-radius:14px;background:rgba(232,244,241,.12);overflow:hidden;border:1px solid var(--line)}
+.bar>div{height:100%;width:0;border-radius:14px;background:repeating-linear-gradient(115deg,var(--kelp) 0 14px,#5fd0bf 14px 28px);background-size:56px 100%;animation:stripe 1s linear infinite;transition:width .4s ease}
+@keyframes stripe{to{background-position:56px 0}}
+.status{font-size:13px;color:var(--mute);min-height:2.8em;max-width:340px;text-align:center;word-break:break-all}
+.tip{font-size:13px;color:var(--foam);opacity:.85;max-width:330px;text-align:center;border-top:1px solid var(--line);padding-top:14px}
+.err{max-width:340px;text-align:center;color:var(--coral);font-size:14px}
+
+/* ===== app ===== */
+#app{position:relative;z-index:1;height:100%;display:flex;flex-direction:column;max-width:720px;margin:0 auto;padding-top:env(safe-area-inset-top,0px)}
+header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;gap:10px}
+header h1{font-family:var(--serif);font-weight:800;font-size:20px;letter-spacing:.06em}
+.chip-count{font-size:13px;padding:4px 12px;border-radius:20px;background:rgba(232,244,241,.1);border:1px solid var(--line);font-variant-numeric:tabular-nums}
+.btn{padding:10px 18px;border-radius:14px;font-weight:700;font-size:15px;transition:transform .15s,background .2s,opacity .2s}
+.btn:active{transform:scale(.95)}
+.btn:disabled{opacity:.4;pointer-events:none}
+.btn.main{background:var(--broth);color:#2a1a05}
+.btn.ghost{background:rgba(232,244,241,.09);border:1px solid var(--line)}
+
+/* start */
+#start{flex:1;overflow:auto;padding:16px 20px 28px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;text-align:center}
+#start .lead{max-width:420px;color:var(--mute);font-size:15px}
+.rules{display:grid;gap:8px;text-align:left;font-size:14px;max-width:380px;width:100%}
+.rules div{display:flex;gap:10px;align-items:center;padding:10px 14px;border-radius:14px;background:rgba(232,244,241,.06);border:1px solid var(--line)}
+.rules span{font-size:20px}
+.genres{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.genres button{padding:8px 16px;border-radius:30px;border:1.5px solid var(--line);background:rgba(232,244,241,.05);font-size:14px;transition:all .2s}
+.genres button[aria-pressed=true]{background:var(--kelp);color:#04201c;border-color:var(--kelp);font-weight:700}
+
+/* play */
+#play{flex:1;min-height:0;display:flex;flex-direction:column}
+.problem{margin:0 14px 8px;padding:16px 18px;border-radius:20px;background:linear-gradient(160deg,rgba(242,180,90,.16),rgba(242,180,90,.05));border:1px solid rgba(242,180,90,.4);max-height:34vh;overflow:auto;animation:pop .5s cubic-bezier(.2,1.4,.4,1)}
+.problem h2{font-family:var(--serif);font-size:18px;color:var(--broth);margin-bottom:4px}
+.problem p{font-size:15px;line-height:1.8}
+@keyframes pop{from{transform:scale(.94);opacity:0}}
+#log{flex:1;min-height:0;overflow-y:auto;padding:8px 14px;display:flex;flex-direction:column;gap:10px;scroll-behavior:smooth}
+.msg{max-width:84%;padding:10px 14px;border-radius:18px;font-size:15px;animation:in .3s ease;word-break:break-word}
+@keyframes in{from{transform:translateY(8px);opacity:0}}
+.msg.me{align-self:flex-end;background:var(--kelp);color:#04201c;border-bottom-right-radius:6px;font-weight:500}
+.msg.ai{align-self:flex-start;background:rgba(232,244,241,.1);border:1px solid var(--line);border-bottom-left-radius:6px}
+.msg.sys{align-self:center;font-size:13px;color:var(--mute);background:none;text-align:center}
+.badge{display:inline-block;font-weight:700;padding:1px 12px;border-radius:12px;margin-right:6px}
+.badge.yes{background:var(--kelp);color:#04201c}
+.badge.no{background:var(--coral);color:#3a0b06}
+.badge.irr{background:rgba(232,244,241,.2)}
+.dots span{display:inline-block;width:8px;height:8px;margin:0 2px;border-radius:50%;background:var(--mute);animation:dot 1s infinite}
+.dots span:nth-child(2){animation-delay:.15s}.dots span:nth-child(3){animation-delay:.3s}
+@keyframes dot{40%{transform:translateY(-6px);background:var(--broth)}}
+.reveal{border-color:var(--broth);background:rgba(242,180,90,.14)}
+.win{animation:shake .6s}
+@keyframes shake{30%{transform:scale(1.04) rotate(-1deg)}60%{transform:scale(1.04) rotate(1deg)}}
+.actions{display:flex;gap:8px;padding:6px 14px 0;overflow-x:auto}
+.actions .btn{flex:none;padding:8px 14px;font-size:13px}
+.composer{display:flex;gap:8px;padding:10px 14px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}
+.composer input{flex:1;min-width:0;padding:13px 16px;border-radius:16px;border:1.5px solid var(--line);background:rgba(6,20,31,.7);color:var(--foam);font:inherit;font-size:16px}
+.composer input::placeholder{color:var(--mute)}
+.composer input:focus{border-color:var(--kelp);outline:0}
+.busy{display:flex;flex-direction:column;align-items:center;gap:14px;padding:40px 20px;text-align:center;color:var(--mute)}
+.busy .turtle{position:relative;margin:0;left:0}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div class="bubbles" id="bubbles" aria-hidden="true"></div>
+
+<svg width="0" height="0" style="position:absolute"><defs>
+<symbol id="turtle" viewBox="0 0 100 64">
+  <ellipse cx="86" cy="30" rx="11" ry="9" fill="#5fd0bf"/><circle cx="90" cy="27" r="2" fill="#06141f"/>
+  <ellipse cx="22" cy="54" rx="11" ry="6" fill="#3fb8a8" transform="rotate(-18 22 54)"/>
+  <ellipse cx="62" cy="56" rx="12" ry="6" fill="#3fb8a8" transform="rotate(16 62 56)"/>
+  <path d="M8 46C8 22 28 8 48 8s40 14 40 38z" fill="#2f8f7f"/>
+  <path d="M8 46C8 22 28 8 48 8s40 14 40 38z" fill="none" stroke="#e8f4f1" stroke-opacity=".5" stroke-width="2"/>
+  <path d="M30 20l10 8-4 14M56 12l-2 18 18 6M40 28l14 2M36 42l-14 4" stroke="#e8f4f1" stroke-opacity=".45" stroke-width="2" fill="none" stroke-linecap="round"/>
+</symbol></defs></svg>
+
+<!-- LOADER -->
+<section id="loader" aria-live="polite">
+  <div class="brand">ウミガメのスープ</div>
+  <div class="sub">AIと遊ぶ水平思考クイズ</div>
+  <div class="bowl" id="bowl" style="--fill:0%">
+    <div class="steam"><b style="--o:-30px"></b><b style="--o:-4px;animation-delay:.8s"></b><b style="--o:22px;animation-delay:1.5s"></b></div>
+    <div class="bowl-body"><div class="soup"></div></div>
+    <div class="bowl-rim"></div>
+    <svg class="turtle" style="bottom:98px" viewBox="0 0 100 64"><use href="#turtle"/></svg>
+  </div>
+  <div class="pct"><span id="pct">0</span><small>%</small></div>
+  <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="barwrap"><div id="barfill"></div></div>
+  <div class="status" id="status">AIを準備しています…</div>
+  <div class="tip" id="tip"></div>
+  <div class="err hidden" id="err"></div>
+</section>
+
+<!-- APP -->
+<main id="app" class="hidden">
+  <header>
+    <h1>ウミガメのスープ</h1>
+    <span class="chip-count hidden" id="count">質問 0 回</span>
+  </header>
+
+  <section id="start">
+    <svg class="turtle" style="position:relative;left:0;margin:0;width:96px" viewBox="0 0 100 64"><use href="#turtle"/></svg>
+    <p class="lead">不思議な物語の「なぜ？」を、質問だけで解き明かそう。AIが問題を作り、あなたの質問に答えます。</p>
+    <div class="rules">
+      <div><span>🙋</span>「はい」か「いいえ」で答えられる質問をする</div>
+      <div><span>🧩</span>答えが分かったら「答えを言う」で推理を送る</div>
+      <div><span>💡</span>行き詰まったらヒントも出せます</div>
+    </div>
+    <div class="genres" id="genres" role="group" aria-label="ジャンル">
+      <button aria-pressed="true" data-g="おまかせ">おまかせ</button>
+      <button aria-pressed="false" data-g="日常の何気ない出来事">日常</button>
+      <button aria-pressed="false" data-g="ほのぼのとした温かい話">ほのぼの</button>
+      <button aria-pressed="false" data-g="ミステリー風の少し怖い話">ミステリー</button>
+    </div>
+    <button class="btn main" id="startBtn" style="font-size:17px;padding:14px 34px">問題を作る</button>
+  </section>
+
+  <section id="play" class="hidden">
+    <div class="problem"><h2 id="ptitle"></h2><p id="ptext"></p></div>
+    <div id="log" aria-live="polite"></div>
+    <div class="actions">
+      <button class="btn ghost" id="hintBtn">💡 ヒント</button>
+      <button class="btn ghost" id="guessBtn">🎯 答えを言う</button>
+      <button class="btn ghost" id="giveBtn">🏳️ ギブアップ</button>
+      <button class="btn ghost" id="newBtn">🔄 新しい問題</button>
+    </div>
+    <div class="composer">
+      <input id="input" type="text" placeholder="質問を入力（例：その人は男性ですか？）" enterkeyhint="send" autocomplete="off" maxlength="80">
+      <button class="btn main" id="sendBtn">送る</button>
+    </div>
+  </section>
+</main>
+
+<script type="module">
+import * as webllm from "https://esm.run/@mlc-ai/web-llm";
+
+/* ---------- model: 軽量。?lite を付けるとさらに小さいモデルに ---------- */
+const LITE = new URLSearchParams(location.search).has("lite");
+const SIZE = LITE ? "0.5B" : "1.5B";
+const $ = id => document.getElementById(id);
+
+/* ---------- bubbles ---------- */
+const bw = $("bubbles");
+for(let i=0;i<14;i++){const b=document.createElement("i");
+  b.style.cssText=`--s:${8+Math.random()*26}px;--x:${Math.random()*100}%;--d:${9+Math.random()*10}s;--l:${-Math.random()*14}s;--w:${(Math.random()-.5)*60}px`;bw.appendChild(b);}
+
+/* ---------- loader ---------- */
+const TIPS=["「ウミガメのスープ」は、質問で真相に迫る水平思考クイズです。","質問は「はい／いいえ」で答えられる形にしましょう。","初回だけAIの読み込みに時間がかかります。次回からは速くなります。","Wi-Fi環境での読み込みがおすすめです。（約1GB）","AIの回答が間違うこともあります。それも一興です。"];
+let tipI=0; $("tip").textContent=TIPS[0];
+const tipTimer=setInterval(()=>{tipI=(tipI+1)%TIPS.length;$("tip").textContent=TIPS[tipI]},4500);
+let shown=0,target=0;
+const tick=()=>{ if(shown<target){shown=Math.min(target,shown+Math.max(.25,(target-shown)*.08));}
+  const p=Math.floor(shown); $("pct").textContent=p; $("barfill").style.width=shown+"%";
+  $("bowl").style.setProperty("--fill",Math.min(100,shown*1.05)+"%"); $("barwrap").setAttribute("aria-valuenow",p);
+  requestAnimationFrame(tick)}; tick();
+function fail(msg){ clearInterval(tipTimer); $("status").classList.add("hidden"); const e=$("err"); e.classList.remove("hidden"); e.innerHTML=msg; }
+
+let engine=null;
+async function boot(){
+  if(!navigator.gpu){ return fail("このブラウザはWebGPUに対応していません。<br>PCのChrome / Edge、Android Chrome、iOS 18以降のSafariでお試しください。"); }
+  let model;
+  try{
+    const ad=await navigator.gpu.requestAdapter();
+    if(!ad) throw 0;
+    const f16=ad.features.has("shader-f16");
+    model=`Qwen2.5-${SIZE}-Instruct-${f16?"q4f16_1":"q4f32_1"}-MLC`;
+  }catch(e){ return fail("GPUを初期化できませんでした。ページを再読み込みしてください。"); }
+  try{
+    engine=await webllm.CreateMLCEngine(model,{initProgressCallback:r=>{
+      target=Math.max(target,Math.round((r.progress||0)*100));
+      $("status").textContent=r.text||"読み込み中…";
+    }});
+    target=100; $("status").textContent="準備完了！";
+    await new Promise(r=>{const w=()=>shown>=99.5?r():setTimeout(w,60);w()});
+    clearInterval(tipTimer);
+    $("loader").classList.add("out"); $("app").classList.remove("hidden");
+    setTimeout(()=>$("loader").remove(),750);
+  }catch(e){ console.error(e); fail("AIの読み込みに失敗しました。<br>通信状況や空き容量を確認して、再読み込みしてください。<br><small>?lite を付けるとより軽量なモデルになります。</small>"); }
+}
+boot();
+
+/* ---------- puzzle state ---------- */
+let puzzle=null,qCount=0,busy=false,genre="おまかせ";
+let history=[],cache=new Map(),hintsGiven=[];
+const SEEDS=[
+ {title:"帰ってきた夫",problem:"男は海辺のレストランでウミガメのスープを一口飲み、涙を流しながら店を出て、そのまま帰らぬ人となった。なぜ？",answer:"男はかつて遭難し、仲間がウミガメのスープだと偽って出してくれた肉で生き延びた。今日本物を飲んで味が違うと気づき、あれは亡くなった仲間の肉だったと悟り、絶望して命を絶った。",facts:["男は過去に海で遭難した","遭難中、仲間が肉を「ウミガメのスープ」だと言って男に食べさせた","その肉は亡くなった仲間の肉だった","男は当時そのことを知らなかった","レストランで本物を飲み、味が違うと気づいた","男は真実を悟り、自ら命を絶った"]},
+ {title:"消えたエレベーター",problem:"ある男は、いつも10階でエレベーターを降りて、残りは階段で15階まで上がる。ただし雨の日は最上階までエレベーターで行く。なぜ？",answer:"男は背が低くて15階のボタンに手が届かず、10階のボタンまでしか押せない。雨の日は傘を持っていて、それでボタンを押せるから。",facts:["男は背が低い","15階のボタンには手が届かない","10階のボタンには手が届く","雨の日は傘を持っている","傘を使ってボタンを押せる","男は健康で、階段を上ることはできる"]}
+];
+const THEMES=["夜の電車","古い写真","誕生日","雨の日","コンビニ","図書館","灯台","手紙","エレベーター","動物園","結婚式","忘れ物","砂時計","時計","電話","鏡","公園のベンチ","ラーメン屋","傘","星空"];
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+
+async function chat(messages,opt={}){
+  const r=await engine.chat.completions.create({messages,stream:false,...opt});
+  return (r.choices[0].message.content||"").trim();
+}
+function jsonOf(t){ const m=t.match(/\{[\s\S]*\}/); if(!m) return null; try{return JSON.parse(m[0])}catch{return null} }
+const busyMsg=t=>{const m=$("busyMsg"); if(m) m.textContent=t};
+
+/* 手順1：まず「真相メモ」を書く → 手順2：その真相を隠した問題文を書く */
+async function makePuzzle(){
+  const theme=pick(THEMES), ex=pick(SEEDS);
+  const sys="あなたは「ウミガメのスープ」（水平思考クイズ）の出題者です。必ず日本語のJSONのみを出力します。";
+  for(let i=0;i<2;i++){
+    try{
+      busyMsg("真相をひそかに考えています…");
+      const t1=await chat([{role:"system",content:sys},{role:"user",content:`問題の「真相メモ」を作ってください。ジャンル：${genre}。キーワード：${theme}。
+- title：6文字以内の題名
+- answer：2〜3文の、論理的に筋の通った真相
+- facts：真相を成り立たせる事実を、短い1文で5〜7個（人物・場所・原因・結果・きっかけなど）
+- 過激な暴力や性的な内容は避ける
+例：${JSON.stringify({title:ex.title,answer:ex.answer,facts:ex.facts})}
+この例とは違う新しい真相メモを、同じJSON形式で出力してください。`}],{temperature:.9,max_tokens:520,response_format:{type:"json_object"}});
+      const o=jsonOf(t1);
+      if(!o||!o.answer||o.answer.length<12||!Array.isArray(o.facts)||o.facts.length<3) continue;
+      busyMsg("真相を隠した問題文を作っています…");
+      const t2=await chat([{role:"system",content:sys},{role:"user",content:`次の真相を持つ問題文を作ってください。
+【真相】${o.answer}
+条件：2〜3文で、状況が不思議で「なぜ？」と思える出題文。真相の核心（理由・正体）は絶対に書かない。
+例：{"problem":${JSON.stringify(ex.problem)}}
+JSON形式 {"problem":"..."} で出力してください。`}],{temperature:.6,max_tokens:220,response_format:{type:"json_object"}});
+      const p=jsonOf(t2);
+      if(p&&p.problem&&p.problem.length>12) return {title:o.title||"謎の物語",problem:p.problem,answer:o.answer,facts:o.facts.map(String).slice(0,8)};
+    }catch(e){console.warn(e)}
+  }
+  return pick(SEEDS);
+}
+
+/* ---------- UI helpers ---------- */
+const log=$("log");
+function add(cls,html,isText){const d=document.createElement("div");d.className="msg "+cls;
+  if(isText) d.textContent=html; else d.innerHTML=html; log.appendChild(d); log.scrollTop=log.scrollHeight; return d;}
+function esc(s){return s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function typing(){return add("ai",'<span class="dots"><span></span><span></span><span></span></span>')}
+function setBusy(v){busy=v;["sendBtn","hintBtn","guessBtn","giveBtn","newBtn"].forEach(i=>$(i).disabled=v)}
+function updateCount(){$("count").textContent=`質問 ${qCount} 回`}
+
+/* ---------- new game ---------- */
+async function newGame(){
+  $("start").classList.add("hidden"); $("play").classList.add("hidden"); $("count").classList.add("hidden");
+  const b=document.createElement("div"); b.className="busy"; b.id="busy";
+  b.innerHTML='<svg class="turtle" style="width:90px" viewBox="0 0 100 64"><use href="#turtle"/></svg><div id="busyMsg">AIが問題を考えています…</div><div class="dots"><span></span><span></span><span></span></div>';
+  $("app").appendChild(b);
+  setBusy(true);
+  history=[];cache.clear();hintsGiven=[];
+  puzzle=await makePuzzle(); qCount=0; updateCount();
+  b.remove();
+  $("ptitle").textContent="「"+puzzle.title+"」"; $("ptext").textContent=puzzle.problem;
+  log.innerHTML=""; add("sys","質問してみよう。「はい」「いいえ」「関係ない」で答えます。");
+  $("play").classList.remove("hidden"); $("count").classList.remove("hidden");
+  setBusy(false); $("input").focus();
+}
+
+/* ---------- judge ---------- */
+/* 出題者のメモ：動かない情報を先頭に、増える履歴を末尾に置く（記憶の安定＆高速化） */
+const LABEL={yes:"はい",no:"いいえ",irr:"関係ありません"};
+const ctx=()=>{
+  const f=(puzzle.facts||[]).map((x,i)=>`${i+1}. ${x}`).join("\n")||"（なし）";
+  const h=history.slice(-30).map(x=>`・${x.q} → ${x.a}`).join("\n")||"（まだなし）";
+  return `あなたは「ウミガメのスープ」の出題者です。以下は出題者だけが知る秘密のメモです。
+【問題】${puzzle.problem}
+【真相】${puzzle.answer}
+【確定している事実】
+${f}
+【これまでの質問と回答】（これらと矛盾する答えは絶対にしない）
+${h}`;
+};
+
+async function ask(q){
+  const key=q.replace(/[\s、。，．？?！!]/g,"");
+  if(cache.has(key)) return cache.get(key);
+  const sys=ctx()+`
+プレイヤーの新しい質問を、真相と確定事実に照らして次のいずれか1つだけで答えてください。説明は禁止です。
+- はい（真相や確定事実に当てはまる）
+- いいえ（真相や確定事実に反する）
+- 関係ありません（真相と無関係、または判断に影響しない）`;
+  const t=await chat([{role:"system",content:sys},{role:"user",content:"質問：男性ですか？"},{role:"assistant",content:"関係ありません"},{role:"user",content:"質問："+q}],{temperature:0,max_tokens:8});
+  const r=(t.includes("いいえ")||t.includes("違"))?"no":t.includes("はい")?"yes":"irr";
+  cache.set(key,r); history.push({q,a:LABEL[r]});
+  return r;
+}
+const BADGE={yes:'<span class="badge yes">はい</span>',no:'<span class="badge no">いいえ</span>',irr:'<span class="badge irr">関係ありません</span>'};
+
+async function send(){
+  const q=$("input").value.trim(); if(!q||busy) return;
+  $("input").value=""; add("me",q,true); qCount++; updateCount(); setBusy(true);
+  const t=typing();
+  try{ const r=await ask(q); t.innerHTML=BADGE[r]; }catch(e){ t.textContent="うまく答えられませんでした。もう一度どうぞ。"; }
+  setBusy(false); $("input").focus();
+}
+
+async function hint(){
+  setBusy(true); const t=typing();
+  try{
+    const h=await chat([{role:"system",content:ctx()+"\nプレイヤーにヒントを1文（40字以内）で出してください。真相をそのまま言わず、着眼点だけを示してください。"+(hintsGiven.length?"\nすでに出したヒント（重複禁止）：\n"+hintsGiven.join("\n"):"")},{role:"user",content:"ヒントをください"}],{temperature:.5,max_tokens:80});
+    hintsGiven.push(h); t.innerHTML="💡 "+esc(h);
+  }catch{t.textContent="ヒントを作れませんでした。";}
+  setBusy(false);
+}
+
+let guessMode=false;
+function toggleGuess(){
+  guessMode=!guessMode;
+  $("guessBtn").textContent=guessMode?"✖ 推理をやめる":"🎯 答えを言う";
+  $("input").placeholder=guessMode?"あなたの推理を入力":"質問を入力（例：その人は男性ですか？）";
+  $("sendBtn").textContent=guessMode?"推理する":"送る"; $("input").focus();
+}
+async function guess(){
+  const g=$("input").value.trim(); if(!g||busy) return;
+  $("input").value=""; add("me","🎯 "+g,true); setBusy(true); const t=typing();
+  try{
+    const r=await chat([{role:"system",content:ctx()+"\nプレイヤーの推理が真相の核心を捉えているか判定し、「正解」「惜しい」「不正解」のどれか1語だけで答えてください。"},{role:"user",content:"推理："+g}],{temperature:0,max_tokens:8});
+    if(r.includes("不正解")) t.innerHTML='<span class="badge no">不正解</span>もう少し質問してみよう。';
+    else if(r.includes("惜しい")) t.innerHTML='<span class="badge irr">惜しい！</span>あと一歩です。';
+    else if(r.includes("正解")){ t.remove(); win(); }
+    else t.innerHTML='<span class="badge irr">惜しい？</span>もう少し詳しく教えてください。';
+  }catch{t.textContent="判定できませんでした。";}
+  setBusy(false);
+}
+function win(){ add("ai reveal win",`🎉 <b>正解！</b>（質問 ${qCount} 回）<br>${esc(puzzle.answer)}`); toggleGuessOff(); }
+function giveUp(){ add("ai reveal",`🏳️ <b>真相</b><br>${esc(puzzle.answer)}`); toggleGuessOff(); }
+function toggleGuessOff(){ if(guessMode) toggleGuess(); }
+
+/* ---------- events ---------- */
+$("genres").addEventListener("click",e=>{const b=e.target.closest("button"); if(!b) return;
+  [...$("genres").children].forEach(x=>x.setAttribute("aria-pressed",x===b)); genre=b.dataset.g;});
+$("startBtn").onclick=newGame;
+$("newBtn").onclick=()=>{ toggleGuessOff(); newGame(); };
+$("hintBtn").onclick=hint; $("giveBtn").onclick=giveUp; $("guessBtn").onclick=toggleGuess;
+$("sendBtn").onclick=()=>guessMode?guess():send();
+$("input").addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.isComposing){ guessMode?guess():send(); }});
+</script>
+</body>
+</html>
