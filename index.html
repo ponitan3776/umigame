@@ -13,6 +13,7 @@
 <link rel="preconnect" href="https://huggingface.co" crossorigin>
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="dns-prefetch" href="https://raw.githubusercontent.com">
+<link rel="modulepreload" href="https://esm.run/@mlc-ai/web-llm" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@600;800&family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
@@ -178,7 +179,7 @@ header h1{font-family:var(--serif);font-weight:800;font-size:20px;letter-spacing
       <div class="tool"><b>💡</b>ヒント：着眼点を1つ教えてくれる</div>
       <div class="tool"><b>🎯</b>答えを言う：推理を送ると判定してくれる</div>
       <div class="tool"><b>🏳️</b>ギブアップ：真相を見られる</div>
-      <div class="tool" style="color:var(--mute)">準備ができたら自動で始まります</div></article>
+      <div class="tool" style="color:var(--mute)">AIのダウンロードは初回だけ。2回目からは数秒で始まります</div></article>
     <div class="dotsnav" id="dotsnav"></div>
   </div>
   <div class="err hidden" id="err"></div>
@@ -229,7 +230,10 @@ header h1{font-family:var(--serif);font-weight:800;font-size:20px;letter-spacing
 </main>
 
 <script type="module">
-import * as webllm from "https://esm.run/@mlc-ai/web-llm";
+/* ライブラリは動的に読み込む：読み込み完了を待たずに、ロード画面の動き・チュートリアルを即座に開始する */
+let webllm=null;
+const llmP=import("https://esm.run/@mlc-ai/web-llm").then(m=>(webllm=m));
+llmP.catch(()=>{});
 
 /* ---------- model: 軽量。?lite を付けるとさらに小さいモデルに ---------- */
 /* ---------- モデル選択＆クラッシュ検知 ----------
@@ -282,12 +286,20 @@ const tick=()=>{ if(shown<target){shown=Math.min(target,shown+Math.max(.6,(targe
   requestAnimationFrame(tick)}; tick();
 function fail(msg){ clearInterval(slideTimer); $("status").classList.add("hidden"); const e=$("err"); e.classList.remove("hidden"); e.innerHTML=msg; }
 
+function fmtStatus(r){
+  const t=r.text||""; const p=r.progress||0, el=r.timeElapsed||0;
+  let label=/Fetching/i.test(t)?"AIのデータをダウンロード中":/shader|GPU/i.test(t)?"GPUを準備中（初回は少し時間がかかります）":/cache/i.test(t)?"保存済みのAIを読み込み中":"準備中";
+  const m=t.match(/(\d+)MB fetched/); if(m) label+=`（${m[1]}MB取得）`;
+  if(p>0.04&&p<0.98&&el>3){ const rest=Math.round(el/p*(1-p)); label+=rest>=90?` 残り約${Math.ceil(rest/60)}分`:` 残り約${rest}秒`; }
+  return label;
+}
 let engine=null;
 const NOGPU="このブラウザ／OSではWebGPUが使えません。<br>iPhone・iPadは <b>iOS / iPadOS 26 以降</b>にアップデートしてお試しください（SafariでもChromeでも同じです）。";
 async function boot(){
   if(crashes>=3){ store.set("umi_inflight","0"); return fail('端末のメモリ不足で、読み込みが何度も中断されました。<br>他のタブやアプリを閉じ、ブラウザを再起動してから<br><a href="?retry" style="color:var(--broth)">もう一度試す</a>をタップしてください。'); }
   if(!navigator.gpu){ store.set("umi_inflight","0"); return fail(NOGPU); }
   let wl=null; try{wl=await navigator.wakeLock?.request("screen")}catch{}
+  try{ await llmP; }catch(e){ store.set("umi_inflight","0"); return fail('AIの部品を読み込めませんでした。<br>通信状況を確認して、再読み込みしてください。'); }
   let f16=false;
   try{ const ad=await navigator.gpu.requestAdapter(); if(!ad) throw 0; f16=ad.features.has("shader-f16"); }
   catch(e){ store.set("umi_inflight","0"); return fail("GPUを初期化できませんでした。ページを再読み込みしてください。"); }
@@ -305,7 +317,7 @@ async function boot(){
       $("status").textContent=cached?"保存済みのAIを起動しています…（数秒）":"AIを読み込んでいます…";
       engine=await webllm.CreateMLCEngine(model,{initProgressCallback:r=>{
         target=Math.max(target,Math.round((r.progress||0)*100));
-        $("status").textContent=r.text||"読み込み中…";
+        $("status").textContent=fmtStatus(r);
       }});
       loadedSz=sz; if(sz!==sizes[0]) store.set("umi_tier",sz);
       lastE=null; break;
@@ -314,7 +326,7 @@ async function boot(){
   if(!engine){ store.set("umi_inflight","0"); try{wl?.release()}catch{}
     return fail('AIの読み込みに失敗しました。<br>空き容量と通信状況を確認し、他のタブを閉じて再読み込みしてください。<br><small>'+esc(String(lastE&&lastE.message||lastE).slice(0,160))+'</small>'); }
   target=100; $("status").textContent="準備完了！"; setupUp(loadedSz); prefetch();
-  await new Promise(r=>{const w=()=>shown>=99.5?r():setTimeout(w,60);w()});
+  shown=Math.max(shown,90); await new Promise(r=>setTimeout(r,600));
   clearInterval(slideTimer);
   try{wl?.release()}catch{} $("loader").classList.add("out"); $("app").classList.remove("hidden");
   setTimeout(()=>$("loader").remove(),750);
