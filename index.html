@@ -9,11 +9,10 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="ウミガメのスープ">
 <meta name="format-detection" content="telephone=no">
-<title>ウミガメのスープ | AIと遊ぶ水平思考クイズ</title>
+<title>たんこぶ</title>
 <link rel="preconnect" href="https://huggingface.co" crossorigin>
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="dns-prefetch" href="https://raw.githubusercontent.com">
-<link rel="modulepreload" href="https://esm.run/@mlc-ai/web-llm" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@600;800&family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
@@ -179,7 +178,7 @@ header h1{font-family:var(--serif);font-weight:800;font-size:20px;letter-spacing
       <div class="tool"><b>💡</b>ヒント：着眼点を1つ教えてくれる</div>
       <div class="tool"><b>🎯</b>答えを言う：推理を送ると判定してくれる</div>
       <div class="tool"><b>🏳️</b>ギブアップ：真相を見られる</div>
-      <div class="tool" style="color:var(--mute)">AIのダウンロードは初回だけ。2回目からは数秒で始まります</div></article>
+      <div class="tool" style="color:var(--mute)">準備ができたら自動で始まります</div></article>
     <div class="dotsnav" id="dotsnav"></div>
   </div>
   <div class="err hidden" id="err"></div>
@@ -208,8 +207,6 @@ header h1{font-family:var(--serif);font-weight:800;font-size:20px;letter-spacing
     </div>
     <p id="iosTip" class="hidden" style="font-size:12px;color:var(--mute);max-width:340px">💡 共有ボタン →「ホーム画面に追加」から開くと、AIの保存が長持ちして次回も速く起動します</p>
     <p id="preNote" style="font-size:13px;color:var(--mute);min-height:1.6em"></p>
-    <p id="aiNote" style="font-size:12px;color:var(--mute)"></p>
-    <button class="btn ghost hidden" id="upBtn" style="font-size:13px"></button>
     <button class="btn main" id="startBtn" style="font-size:17px;padding:14px 34px">問題を作る</button>
   </section>
 
@@ -230,10 +227,7 @@ header h1{font-family:var(--serif);font-weight:800;font-size:20px;letter-spacing
 </main>
 
 <script type="module">
-/* ライブラリは動的に読み込む：読み込み完了を待たずに、ロード画面の動き・チュートリアルを即座に開始する */
-let webllm=null;
-const llmP=import("https://esm.run/@mlc-ai/web-llm").then(m=>(webllm=m));
-llmP.catch(()=>{});
+import * as webllm from "https://esm.run/@mlc-ai/web-llm";
 
 /* ---------- model: 軽量。?lite を付けるとさらに小さいモデルに ---------- */
 /* ---------- モデル選択＆クラッシュ検知 ----------
@@ -248,9 +242,7 @@ store.set("umi_inflight","1");
 addEventListener("pagehide",()=>store.set("umi_inflight","0"));
 const IOS=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
 const lowMem=(navigator.deviceMemory||8)<=4;
-const tierPref=store.get("umi_tier");
-const base=(IOS||lowMem||crashes>=1)?"0.5B":"1.5B";
-const SIZE=P.has("lite")?"0.5B":P.has("hq")?"3B":(tierPref&&crashes===0)?tierPref:base;
+const SIZE=P.has("hq")?"1.5B":(P.has("lite")||IOS||lowMem||crashes>=1)?"0.5B":"1.5B";
 const LITE=SIZE==="0.5B";
 navigator.storage?.persist?.();
 const $ = id => document.getElementById(id);
@@ -286,29 +278,19 @@ const tick=()=>{ if(shown<target){shown=Math.min(target,shown+Math.max(.6,(targe
   requestAnimationFrame(tick)}; tick();
 function fail(msg){ clearInterval(slideTimer); $("status").classList.add("hidden"); const e=$("err"); e.classList.remove("hidden"); e.innerHTML=msg; }
 
-function fmtStatus(r){
-  const t=r.text||""; const p=r.progress||0, el=r.timeElapsed||0;
-  let label=/Fetching/i.test(t)?"AIのデータをダウンロード中":/shader|GPU/i.test(t)?"GPUを準備中（初回は少し時間がかかります）":/cache/i.test(t)?"保存済みのAIを読み込み中":"準備中";
-  const m=t.match(/(\d+)MB fetched/); if(m) label+=`（${m[1]}MB取得）`;
-  if(p>0.04&&p<0.98&&el>3){ const rest=Math.round(el/p*(1-p)); label+=rest>=90?` 残り約${Math.ceil(rest/60)}分`:` 残り約${rest}秒`; }
-  return label;
-}
 let engine=null;
 const NOGPU="このブラウザ／OSではWebGPUが使えません。<br>iPhone・iPadは <b>iOS / iPadOS 26 以降</b>にアップデートしてお試しください（SafariでもChromeでも同じです）。";
 async function boot(){
   if(crashes>=3){ store.set("umi_inflight","0"); return fail('端末のメモリ不足で、読み込みが何度も中断されました。<br>他のタブやアプリを閉じ、ブラウザを再起動してから<br><a href="?retry" style="color:var(--broth)">もう一度試す</a>をタップしてください。'); }
   if(!navigator.gpu){ store.set("umi_inflight","0"); return fail(NOGPU); }
   let wl=null; try{wl=await navigator.wakeLock?.request("screen")}catch{}
-  try{ await llmP; }catch(e){ store.set("umi_inflight","0"); return fail('AIの部品を読み込めませんでした。<br>通信状況を確認して、再読み込みしてください。'); }
   let f16=false;
   try{ const ad=await navigator.gpu.requestAdapter(); if(!ad) throw 0; f16=ad.features.has("shader-f16"); }
   catch(e){ store.set("umi_inflight","0"); return fail("GPUを初期化できませんでした。ページを再読み込みしてください。"); }
   /* 失敗したら f16→f32、1.5B→0.5B の順に自動で切り替える */
-  const order=["3B","1.5B","0.5B"], sizes=order.slice(order.indexOf(SIZE)), cand=[];
-  const known=id=>{try{return webllm.prebuiltAppConfig.model_list.some(m=>m.model_id===id)}catch{return true}};
-  for(const sz of sizes) for(const q of (f16?["q4f16_1","q4f32_1"]:["q4f32_1"])){ const id=`Qwen2.5-${sz}-Instruct-${q}-MLC`; if(known(id)) cand.push([sz,id]); }
-  if(!cand.length) cand.push(["0.5B","Qwen2.5-0.5B-Instruct-q4f16_1-MLC"]);
-  let lastE=null,loadedSz=SIZE;
+  const sizes=SIZE==="1.5B"?["1.5B","0.5B"]:["0.5B"], cand=[];
+  for(const sz of sizes) for(const q of (f16?["q4f16_1","q4f32_1"]:["q4f32_1"])) cand.push([sz,`Qwen2.5-${sz}-Instruct-${q}-MLC`]);
+  let lastE=null;
   for(let k=0;k<cand.length;k++){
     const [sz,model]=cand[k];
     try{
@@ -317,25 +299,19 @@ async function boot(){
       $("status").textContent=cached?"保存済みのAIを起動しています…（数秒）":"AIを読み込んでいます…";
       engine=await webllm.CreateMLCEngine(model,{initProgressCallback:r=>{
         target=Math.max(target,Math.round((r.progress||0)*100));
-        $("status").textContent=fmtStatus(r);
+        $("status").textContent=r.text||"読み込み中…";
       }});
-      loadedSz=sz; if(sz!==sizes[0]) store.set("umi_tier",sz);
+      if(sz!==sizes[0]) store.set("umi_crash",String(Math.max(1,crashes)));
       lastE=null; break;
     }catch(e){ lastE=e; engine=null; console.error(e); }
   }
   if(!engine){ store.set("umi_inflight","0"); try{wl?.release()}catch{}
     return fail('AIの読み込みに失敗しました。<br>空き容量と通信状況を確認し、他のタブを閉じて再読み込みしてください。<br><small>'+esc(String(lastE&&lastE.message||lastE).slice(0,160))+'</small>'); }
-  target=100; $("status").textContent="準備完了！"; setupUp(loadedSz); prefetch();
-  shown=Math.max(shown,90); await new Promise(r=>setTimeout(r,600));
+  target=100; $("status").textContent="準備完了！"; prefetch();
+  await new Promise(r=>{const w=()=>shown>=99.5?r():setTimeout(w,60);w()});
   clearInterval(slideTimer);
   try{wl?.release()}catch{} $("loader").classList.add("out"); $("app").classList.remove("hidden");
   setTimeout(()=>$("loader").remove(),750);
-}
-function setupUp(sz){
-  $("aiNote").textContent="使用中のAI："+sz+(sz==="0.5B"?"（軽量・たまに間違えます）":"");
-  const nx={"0.5B":["1.5B","約0.9GB"],"1.5B":["3B","約1.9GB・メモリ多めの端末向け"]}[sz]; if(!nx) return;
-  const b=$("upBtn"); b.textContent=`🧠 もっと賢いAIで遊ぶ（${nx[1]}）`; b.classList.remove("hidden");
-  b.onclick=()=>{store.set("umi_tier",nx[0]);store.del("umi_crash");store.del("umi_inflight");location.href=location.pathname;};
 }
 boot();
 
@@ -350,12 +326,6 @@ const SEEDS=[
  {title:"おやすみの電話",problem:"おばあさんは毎晩、誰も住んでいない番号に電話をかけ、留守番電話に「おやすみ」と話してから眠る。なぜ？",answer:"おばあさんは夫を亡くしたが、夫の携帯電話の契約を続けている。留守番電話には夫の声の案内が残っていて、その声が聞きたくて毎晩電話をかけている。",facts:["おばあさんは夫を亡くしている","夫の携帯電話は今も契約されている","留守番電話には夫の声の案内が残っている","おばあさんはその声を聞きたくて電話している","誰かが電話に出ることは期待していない","おばあさんは寂しさを和らげたい"]},
  {title:"遠回りの理由",problem:"少年は毎朝、学校へ行くのにわざわざ遠回りの道を通る。近道があるのに、雨の日も寒い日もそうする。なぜ？",answer:"遠回りの道沿いの家の窓から、毎朝おばあさんが手を振って見送ってくれる。少年はそれが嬉しくて、その道を通っている。",facts:["遠回りの道には、ある家がある","その家には一人暮らしのおばあさんが住んでいる","おばあさんは毎朝、窓から手を振ってくれる","少年はそれが嬉しい","近道には、おばあさんの家がない","少年は近道が嫌いなわけではない"]}
 ];
-[["男は店の人ではない","ウミガメのスープに毒は入っていなかった","男は誰かに殺されたわけではない"],
- ["エレベーターは故障していない","男は階段が嫌いなわけではない","雨でエレベーターが混むからではない"],
- ["男は火事で死んだのではない","マッチは火をつけるために使われていない","男は砂漠を歩いて渡ろうとしたのではない"],
- ["バーテンダーは男を撃つつもりはなかった","男は強盗ではない","男とバーテンダーは敵同士ではない"],
- ["おばあさんは番号を間違えているのではない","電話の相手が出ることは期待していない","留守番電話の声の主は今は生きていない"],
- ["近道が危険だからではない","少年は道に迷っているのではない","近道が嫌いなわけではない"]].forEach((n,i)=>SEEDS[i].nots=n);
 let bag=[];
 function nextSeed(){ if(!bag.length) bag=SEEDS.map((_,i)=>i).sort(()=>Math.random()-.5); return {...SEEDS[bag.pop()],kind:"定番"}; }
 const THEMES=["夜の電車","古い写真","誕生日","雨の日","コンビニ","図書館","灯台","手紙","エレベーター","動物園","結婚式","忘れ物","砂時計","時計","電話","鏡","公園のベンチ","ラーメン屋","傘","星空"];
@@ -370,13 +340,12 @@ const busyMsg=t=>{const m=$("busyMsg"); if(m) m.textContent=t};
 
 /* 手順1：まず「真相メモ」を書く → 手順2：その真相を隠した問題文を書く */
 let lastGenErr="";
-const asText=x=>`題名：${x.title}\n真相：${x.answer}\n事実：\n${x.facts.map(f=>"- "+f).join("\n")}\n違うこと：\n${(x.nots||[]).map(f=>"- "+f).join("\n")}`;
+const asText=x=>`題名：${x.title}\n真相：${x.answer}\n事実：\n${x.facts.map(f=>"- "+f).join("\n")}`;
 function parseTruth(t){
-  const [main,notPart=""]=t.split(/違うこと[:：]/);
-  const title=((main.match(/題名[:：]\s*(.+)/)||[])[1]||"").trim();
-  const answer=((main.match(/真相[:：]\s*([\s\S]+?)(?=\n\s*事実[:：]|$)/)||[])[1]||"").trim();
-  const bl=x=>[...x.matchAll(/^\s*[-・●*]\s*(.+)$/gm)].map(m=>m[1].trim()).filter(x=>x.length>3);
-  return {title,answer,facts:bl(main),nots:bl(notPart)};
+  const title=((t.match(/題名[:：]\s*(.+)/)||[])[1]||"").trim();
+  const answer=((t.match(/真相[:：]\s*([\s\S]+?)(?=\n\s*事実[:：]|$)/)||[])[1]||"").trim();
+  const facts=[...t.matchAll(/^\s*[-・●*]\s*(.+)$/gm)].map(m=>m[1].trim()).filter(x=>x.length>3);
+  return {title,answer,facts};
 }
 async function makePuzzle(){
   lastGenErr="";
@@ -388,7 +357,7 @@ async function makePuzzle(){
       const theme=pick(THEMES);
       busyMsg(i?"もう一度、真相を考えています…":"真相をひそかに考えています…");
       const t1=await chat([{role:"system",content:sys},{role:"user",content:`問題の「真相メモ」を新しく作ってください。ジャンル：${genre}。キーワード：${theme}。
-題名は6文字以内、真相は2〜3文で論理的に筋が通ること、事実は短い1文を5〜7個、違うことは「よくある誤解」を短い1文で2〜3個。過激な暴力や性的な内容は避ける。
+題名は6文字以内、真相は2〜3文で論理的に筋が通ること、事実は短い1文を5〜7個。過激な暴力や性的な内容は避ける。
 例1
 ${asText(exs[0])}
 例2
@@ -404,7 +373,7 @@ ${asText(exs[1])}
 例 問題：${exs[0].problem}`}],{temperature:.6,max_tokens:220});
       const p=((t2.match(/問題[:：]\s*([\s\S]+)/)||[])[1]||t2).trim().split(/\n\s*\n/)[0].trim();
       if(p.length>15&&!SEEDS.some(x=>x.problem.slice(0,12)===p.slice(0,12)))
-        return {title:o.title.slice(0,10),problem:p,answer:o.answer,facts:o.facts.slice(0,8),nots:o.nots.slice(0,4),kind:"AI"};
+        return {title:o.title.slice(0,10),problem:p,answer:o.answer,facts:o.facts.slice(0,8),kind:"AI"};
     }catch(e){ lastGenErr=String(e&&e.message||e); console.warn(e); }
   }
   busyMsg("定番問題を選んでいます…");
@@ -456,51 +425,34 @@ const ctx=()=>{
 【真相】${puzzle.answer}
 【確定している事実】
 ${f}
-${(puzzle.nots&&puzzle.nots.length)?"【真相ではないこと】\n"+puzzle.nots.map(x=>"- "+x).join("\n")+"\n":""}【これまでの質問と回答】（これらと矛盾する答えは絶対にしない）
+【これまでの質問と回答】（これらと矛盾する答えは絶対にしない）
 ${h}`;
 };
 
-/* AIが1文字(数字)だけ答え、その確信度(logprobs)が低いときは「判断できません」と正直に返す */
-const CONF=0.65;
-async function classify(system,user,n){
-  const base={messages:[{role:"system",content:system},{role:"user",content:user}],temperature:0,max_tokens:1,stream:false};
-  let r; try{ r=await engine.chat.completions.create({...base,logprobs:true,top_logprobs:6}); }
-  catch(e){ console.warn("logprobs unavailable",e); r=await engine.chat.completions.create(base); }
-  const ch=r.choices[0], top=ch.logprobs&&ch.logprobs.content&&ch.logprobs.content[0]&&ch.logprobs.content[0].top_logprobs;
-  const p=new Array(n).fill(0);
-  if(top){ for(const t of top){ const d=parseInt((t.token||"").trim(),10); if(d>=1&&d<=n) p[d-1]+=Math.exp(t.logprob); } }
-  else { const d=parseInt((ch.message.content||"").trim(),10); if(d>=1&&d<=n) p[d-1]=1; }
-  const sum=p.reduce((a,b)=>a+b,0); if(sum<0.3) return {i:-1,conf:0};
-  let b=0; p.forEach((v,k)=>{if(v>p[b])b=k}); return {i:b,conf:p[b]/sum};
-}
-const bi=t=>{const x=t.replace(/[\s、。，．？?！!「」]/g,""),a=new Set();for(let i=0;i<x.length-1;i++)a.add(x.slice(i,i+2));return a};
-const sim=(a,b)=>{const A=bi(a),B=bi(b);if(!A.size)return 0;let c=0;A.forEach(x=>B.has(x)&&c++);return c/A.size};
-function related(q){ return (puzzle.facts||[]).concat(puzzle.nots||[]).map(f=>[sim(q,f),f]).filter(x=>x[0]>0.12).sort((a,b)=>b[0]-a[0]).slice(0,3).map(x=>x[1]); }
-const JUDGE_HEAD=`あなたは「ウミガメのスープ」の出題者です。プレイヤーの質問が、真相と確定事実に合うかを判定します。
-出力は数字1文字だけ：1=はい（合っている） 2=いいえ（反している） 3=関係ありません（真相に出てこない／判断に影響しない）
-知らないことを勝手に作らず、真相に書かれていないことは3にします。
-例（別の問題）真相「男は背が低く、高い階のボタンに手が届かない」
-質問「男は背が低いですか？」→1　質問「男は背が高いですか？」→2　質問「男は犬を飼っていますか？」→3
----
-`;
 async function ask(q){
   const key=q.replace(/[\s、。，．？?！!]/g,"");
   if(cache.has(key)) return cache.get(key);
-  const rel=related(q);
-  const sys=JUDGE_HEAD+ctx()+(rel.length?"\n【この質問と特に関係しそうなメモ】\n"+rel.map(x=>"- "+x).join("\n"):"");
-  const c=await classify(sys,"質問："+q,3);
-  if(c.i<0||c.conf<CONF) return "unk";
-  const r=["yes","no","irr"][c.i];
+  const sys=ctx()+`
+プレイヤーの新しい質問に答えます。真相と確定事実だけを根拠に、次の2行の形式で出力してください。
+根拠：（30字以内）
+答え：（はい／いいえ／関係ありません のどれか1つ）
+- 質問が真相や確定事実に合っている → はい
+- 質問が真相や確定事実に反している → いいえ
+- 真相に出てこない話で、真相の理解に影響しない → 関係ありません
+- 知らないことを勝手に作らない。判断できなければ「関係ありません」。`;
+  const t=await chat([{role:"system",content:sys},{role:"user",content:"質問："+q}],{temperature:0,max_tokens:100});
+  const m=t.match(/答え[:：]\s*([\s\S]*)/); const a=m?m[1]:t;
+  const r=a.includes("関係")?"irr":a.includes("いいえ")?"no":a.includes("はい")?"yes":"irr";
   cache.set(key,r); history.push({q,a:LABEL[r]});
   return r;
 }
-const BADGE={yes:'<span class="badge yes">はい</span>',no:'<span class="badge no">いいえ</span>',irr:'<span class="badge irr">関係ありません</span>',unk:'<span class="badge irr">うまく判断できません</span>うそをつかないよう、答えを保留します。質問を言い換えてみてね。'};
+const BADGE={yes:'<span class="badge yes">はい</span>',no:'<span class="badge no">いいえ</span>',irr:'<span class="badge irr">関係ありません</span>'};
 
 async function send(){
   const q=$("input").value.trim(); if(!q||busy) return;
   $("input").value=""; add("me",q,true); qCount++; updateCount(); setBusy(true);
   const t=typing();
-  try{ const r=await ask(q); t.innerHTML=BADGE[r]; if(r==="unk"){qCount--;updateCount();} }catch(e){ showErr(t,e); }
+  try{ const r=await ask(q); t.innerHTML=BADGE[r]; }catch(e){ showErr(t,e); }
   setBusy(false); $("input").focus();
 }
 
@@ -524,17 +476,16 @@ async function guess(){
   const g=$("input").value.trim(); if(!g||busy) return;
   $("input").value=""; add("me","🎯 "+g,true); setBusy(true); const t=typing();
   try{
-    const c=await classify(`あなたは「ウミガメのスープ」の出題者です。プレイヤーの推理が真相の核心（理由）を捉えているか判定します。
-出力は数字1文字だけ：1=正解（核心を捉えている） 2=惜しい（一部だけ合っている） 3=不正解（外れている）
-迷ったら2か3にします。
----
-`+ctx(),"推理："+g,3);
-    let r=(c.i<0||c.conf<CONF)?"?":["正解","惜しい","不正解"][c.i];
-    if(r==="正解"&&(c.conf<0.8||sim(g,puzzle.answer+puzzle.facts.join(""))<0.15)) r="惜しい";
+    const raw=await chat([{role:"system",content:ctx()+`
+プレイヤーの推理が、真相の核心（理由）を捉えているか判定します。次の2行の形式で出力してください。
+根拠：（30字以内）
+判定：（正解／惜しい／不正解 のどれか1つ）
+核心を捉えていれば正解、一部だけ合っていれば惜しい、外れていれば不正解。`},{role:"user",content:"推理："+g}],{temperature:0,max_tokens:100});
+    const jm=raw.match(/判定[:：]\s*[「『]?(不正解|惜しい|正解)/); const r=jm?jm[1]:raw;
     if(r.includes("不正解")) t.innerHTML='<span class="badge no">不正解</span>もう少し質問してみよう。';
     else if(r.includes("惜しい")) t.innerHTML='<span class="badge irr">惜しい！</span>あと一歩です。';
     else if(r.includes("正解")){ t.remove(); win(); }
-    else t.innerHTML='<span class="badge irr">判断できません</span>もう少し具体的に書いてみてね。';
+    else t.innerHTML='<span class="badge irr">惜しい？</span>もう少し詳しく教えてください。';
   }catch(e){showErr(t,e);}
   setBusy(false);
 }
